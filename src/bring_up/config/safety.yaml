@@ -1,0 +1,7 @@
+velocity_safety:
+  ros__parameters:
+    command_timeout: 0.5
+    range_timeout: 0.5
+    stop_distance: 0.30
+    require_ultrasonic: true
+    publish_rate: 20.0

@@ -28,6 +28,8 @@ class UltrasonicPublisher : public rclcpp::Node
 		// Parameters
 		rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr param_callback_handler_;
 		std::vector<std::string> frame_ids_;
+		std::vector<std::string> topic_names_;
+		std::string serial_port_;
 		double update_rate_;
 		double field_of_view_;
 		double min_range_;

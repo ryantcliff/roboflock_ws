@@ -1,101 +1,141 @@
 import rclpy
-from rclpy.node import Node
 from geometry_msgs.msg import Twist
+from rclpy.node import Node
+
 import odrive
-from odrive.enums import AxisState, InputMode, ControlMode
-import math
+from odrive.enums import AxisState, ControlMode, InputMode
 
-
-WHEEL_RADIUS = 0.254       # meters 
-WHEEL_SEPARATION = 0.3  # meters — update to your measured value
-GEAR_RATIO = 30.0        # 30:1 gearbox
-
-SERIAL_NUMBERS = {
-    "FR": "316633543334",
-    "FL": "357B358B3135",
-    "RR": "336636543334",
-    "RL": "336536573334",
-}
+from bring_up.drive_kinematics import wheel_turn_rates
 
 
 class DiffDriveController(Node):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__('diff_drive_controller')
-        self.drives = {}
-        self._connect_and_enable()
-        self.create_subscription(Twist, 'cmd_vel', self._cmd_vel_cb, 10)
-        self.get_logger().info('Diff drive controller ready, listening on /cmd_vel')
 
-    def _connect_and_enable(self):
-        for name, serial in SERIAL_NUMBERS.items():
+        self.wheel_radius = float(
+            self.declare_parameter('wheel_radius', 0.10).value
+        )
+        self.wheel_separation = float(
+            self.declare_parameter('wheel_separation', 0.64).value
+        )
+        self.gear_ratio = float(
+            self.declare_parameter('gear_ratio', 30.0).value
+        )
+        self.max_motor_turns_per_second = float(
+            self.declare_parameter(
+                'max_motor_turns_per_second', 60.0
+            ).value
+        )
+        self.command_timeout = float(
+            self.declare_parameter('command_timeout', 0.5).value
+        )
+        self.velocity_ramp_rate = float(
+            self.declare_parameter('velocity_ramp_rate', 10.0).value
+        )
+        self.command_topic = str(
+            self.declare_parameter('command_topic', '/cmd_vel/safe').value
+        )
+
+        defaults = {
+            'FR': ('front_right', '316633543334', -1.0),
+            'FL': ('front_left', '357B358B3135', 1.0),
+            'RR': ('rear_right', '336636543334', -1.0),
+            'RL': ('rear_left', '336536573334', 1.0),
+        }
+        self.serial_numbers = {}
+        self.polarities = {}
+        for wheel, (parameter_name, serial, polarity) in defaults.items():
+            self.serial_numbers[wheel] = str(
+                self.declare_parameter(
+                    f'{parameter_name}.serial_number', serial
+                ).value
+            )
+            self.polarities[wheel] = float(
+                self.declare_parameter(
+                    f'{parameter_name}.polarity', polarity
+                ).value
+            )
+
+        self.drives = {}
+        self.last_command_time = self.get_clock().now()
+        self._connect_and_enable()
+        self.create_subscription(
+            Twist, self.command_topic, self._cmd_vel_callback, 10
+        )
+        self.create_timer(0.1, self._watchdog_callback)
+        self.get_logger().info(
+            f'Diff drive controller listening on {self.command_topic}'
+        )
+
+    def _connect_and_enable(self) -> None:
+        for name, serial in self.serial_numbers.items():
             self.get_logger().info(f'Connecting to {name} ({serial})...')
-            dev = odrive.find_sync(serial_number=serial)
-            dev.clear_errors()
-            dev.axis0.controller.config.input_mode = InputMode.VEL_RAMP
-            dev.axis0.controller.config.vel_ramp_rate = 10.0
-            dev.axis0.requested_state = AxisState.CLOSED_LOOP_CONTROL
-            self.drives[name] = dev
+            drive = odrive.find_sync(serial_number=serial)
+            drive.clear_errors()
+            drive.axis0.controller.config.control_mode = (
+                ControlMode.VELOCITY_CONTROL
+            )
+            drive.axis0.controller.config.input_mode = InputMode.VEL_RAMP
+            drive.axis0.controller.config.vel_ramp_rate = self.velocity_ramp_rate
+            drive.axis0.controller.input_vel = 0.0
+            drive.axis0.requested_state = AxisState.CLOSED_LOOP_CONTROL
+            self.drives[name] = drive
             self.get_logger().info(f'{name} connected and enabled')
 
-    def _cmd_vel_cb(self, msg: Twist):
-        v = msg.linear.x
-        w = msg.angular.z
-        print("Received cmd_vel:")
-        print("linear velocity (v): ", v)
-        print("angular velocity (w): ", w)
-        #testing 
-    
-        # Diff drive kinematics: v_left/right in m/s
-        #try finding the rpm and then convert it to m/s ? 
-        v_left  = v - (w * WHEEL_SEPARATION / 2.0)
-        v_right = v + (w * WHEEL_SEPARATION / 2.0)
-        print("printing v_left and v_right in m/s for debugging")
-        print("v_left: ", v_left)
-        print("v_right: ", v_right)
+    def _cmd_vel_callback(self, message: Twist) -> None:
+        left_turns, right_turns = wheel_turn_rates(
+            message.linear.x,
+            message.angular.z,
+            self.wheel_radius,
+            self.wheel_separation,
+            self.gear_ratio,
+            self.max_motor_turns_per_second,
+        )
+        self._set_motor_rates(left_turns, right_turns)
+        self.last_command_time = self.get_clock().now()
 
+    def _set_motor_rates(self, left_turns: float, right_turns: float) -> None:
+        requested = {
+            'FL': left_turns,
+            'RL': left_turns,
+            'FR': right_turns,
+            'RR': right_turns,
+        }
+        for wheel, turns in requested.items():
+            self.drives[wheel].axis0.controller.input_vel = (
+                turns * self.polarities[wheel]
+            )
 
-        
+    def _watchdog_callback(self) -> None:
+        age = (self.get_clock().now() - self.last_command_time).nanoseconds / 1e9
+        if age > self.command_timeout:
+            self._set_motor_rates(0.0, 0.0)
 
-        # Convert m/s -> motor turns/sec (accounting for gear ratio)
-        turns_left  = (v_left  / (2.0 * math.pi * WHEEL_RADIUS)) * GEAR_RATIO
-        turns_right = (v_right / (2.0 * math.pi * WHEEL_RADIUS)) * GEAR_RATIO
-
-        # damp right wheels when turning right ( pivot turn) , and left wheels when turning left
-        if w < 0 : # turning right
-            turns_right = turns_right * 0.0
-            turns_left = turns_left * 1.5
-            print("dampening right wheels")
-            
-        #else turn left
-        if w > 0 : # turning left
-                turns_left = turns_left * 0.0
-                turns_right = turns_right * 1.5
-                print("dampening left wheels")
-
-
-        # Left wheels are negated to match physical mounting orientation
-        self.drives["FL"].axis0.controller.input_vel =  turns_left
-        self.drives["RL"].axis0.controller.input_vel =  turns_left
-        self.drives["FR"].axis0.controller.input_vel = -turns_right
-        self.drives["RR"].axis0.controller.input_vel = -turns_right
+    def _stop_motors(self) -> None:
+        for drive in self.drives.values():
+            try:
+                drive.axis0.controller.input_vel = 0.0
+                drive.axis0.requested_state = AxisState.IDLE
+            except Exception as error:
+                self.get_logger().error(f'Failed to idle motor: {error}')
 
     def destroy_node(self):
-        self.get_logger().info('Shutting down — stopping and idling motors')
-        for dev in self.drives.values():
-            dev.axis0.controller.input_vel = 0.0
-            dev.axis0.requested_state = AxisState.IDLE
-        super().destroy_node()
+        self.get_logger().info('Stopping and idling motors')
+        self._stop_motors()
+        return super().destroy_node()
 
 
-def main(args=None):
+def main(args=None) -> None:
     rclpy.init(args=args)
-    node = DiffDriveController()
+    node = None
     try:
+        node = DiffDriveController()
         rclpy.spin(node)
     except KeyboardInterrupt:
         pass
     finally:
-        node.destroy_node()
+        if node is not None:
+            node.destroy_node()
         rclpy.shutdown()
 
 

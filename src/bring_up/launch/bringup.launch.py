@@ -37,7 +37,7 @@ from launch_ros.substitutions import FindPackageShare
 from launch_ros.parameter_descriptions import ParameterValue
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 
-from launch_ros.actions import Node
+from launch_ros.actions import Node, SetRemap
 from launch_ros.substitutions import FindPackageShare
 from ament_index_python.packages import get_package_share_directory
 
@@ -51,7 +51,7 @@ def generate_launch_description():
 	)
 	
 	lidar_launch_file = os.path.join(
-		get_package_share_directory('rplidar_ros'),
+		get_package_share_directory('bring_up'),
 		'launch',
 		'rplidar_a1_launch.py'
 	)
@@ -62,12 +62,6 @@ def generate_launch_description():
 		'ultrasonic_publisher.launch.py'
 	)
 		
-	# motor_launch_file = os.path.join(
-	# 	get_package_share_directory('bring_up'),
-	# 	'bring_up',
-	# 	'diff_drive_controller.py'
-	# )
-	
 	beacon_launch_file = os.path.join(
 		get_package_share_directory('beacon_pkg'),
 		'launch',
@@ -115,8 +109,8 @@ def generate_launch_description():
 		'launch',
 		'slam.launch.py'
 	)
-	
-	
+
+
 	# Launch args >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 	declare_autostart = DeclareLaunchArgument(
 		'autostart',
@@ -126,8 +120,18 @@ def generate_launch_description():
 	
 	declare_slam = DeclareLaunchArgument(
 		'slam',
-		default_value='true',
+		default_value='false',
 		description='Run SLAM if true, else use existing map'
+	)
+	declare_nav2 = DeclareLaunchArgument(
+		'nav2',
+		default_value='true',
+		description='Run the Nav2 stack'
+	)
+	declare_tracking = DeclareLaunchArgument(
+		'tracking',
+		default_value='true',
+		description='Follow the GPS beacon'
 	)
 	
 	declare_use_xacro = DeclareLaunchArgument(
@@ -141,6 +145,16 @@ def generate_launch_description():
     'urdf',
     'URDF.xacro'
 	)	
+	safety_config = os.path.join(
+		get_package_share_directory('bring_up'),
+		'config',
+		'safety.yaml'
+	)
+	motor_config = os.path.join(
+		get_package_share_directory('bring_up'),
+		'config',
+		'motor_controller.yaml'
+	)
     
 	# 0.) Static Transforms >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 	
@@ -202,48 +216,69 @@ def generate_launch_description():
 	
 	# 4.) SLAM Toolbox >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 	
-	slam_node = GroupAction([
+	slam_node = GroupAction(actions=[
 		LogInfo(msg="*** Starting SLAM Toolbox ***"),
 		
 		IncludeLaunchDescription(
 			PythonLaunchDescriptionSource(slam_launch_file),
 		),
+	], condition=IfCondition(LaunchConfiguration('slam')))
+
+
+	# 5.) Safety and Motor Controller >>>>>>>>>>>>>>>>>>>>>>>>>>>
+	safety_node = GroupAction([
+		LogInfo(msg="*** Starting Velocity Safety ***"),
+		Node(
+			package='bring_up',
+			executable='velocity_safety',
+			name='velocity_safety',
+			output='screen',
+			parameters=[safety_config]
+		),
 	])
-	
-	
-	# 5.) Motor Controller >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-	
-	# motor_node = GroupAction([
-	# 	LogInfo(msg="*** Starting Motor Controller ***"),
-		
-	# 	IncludeLaunchDescription(
-	# 		PythonLaunchDescriptionSource(motor_launch_file),
-	# 	),
-	# ])
+
+	motor_node = GroupAction([
+		LogInfo(msg="*** Starting Motor Controller ***"),
+		Node(
+			package='bring_up',
+			executable='diff_drive_controller',
+			name='diff_drive_controller',
+			output='screen',
+			parameters=[motor_config]
+		),
+	])
 	
 	
 	# 6.) Nav2 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 	
-	nav2_node = GroupAction([
+	nav2_node = GroupAction(actions=[
 		LogInfo(msg="*** Starting Nav2 ***"),
+		SetRemap(src='/cmd_vel', dst='/cmd_vel/nav'),
 		
 		IncludeLaunchDescription(
 			PythonLaunchDescriptionSource(nav2_launch_file),
 		),
 		
+	], condition=IfCondition(LaunchConfiguration('nav2')))
+
+	tracking_node = GroupAction(actions=[
+		LogInfo(msg="*** Starting Beacon Tracking ***"),
 		IncludeLaunchDescription(
 			PythonLaunchDescriptionSource(goalpose_launch_file),
 		),
-	])
+	], condition=IfCondition(LaunchConfiguration('tracking')))
 	
 	
 	return launch.LaunchDescription([
 		declare_autostart,
 		declare_slam,
+		declare_nav2,
+		declare_tracking,
 		declare_use_xacro,
 	
 		static_tf_node,	
 		gps_nodes,
+		safety_node,
 		TimerAction(
             period=3.0,
             actions=[sensor_nodes]
@@ -259,14 +294,18 @@ def generate_launch_description():
             actions=[slam_node]
         ),
  
-        # TimerAction(
-        #     period=14.0,
-        #     actions=[motor_node]
-        # ),
+		TimerAction(
+			period=14.0,
+			actions=[motor_node]
+		),
  
         TimerAction(
             period=18.0,
             actions=[nav2_node]
+        ),
+        TimerAction(
+            period=20.0,
+            actions=[tracking_node]
         ),
     ])
 		

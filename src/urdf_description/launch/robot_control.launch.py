@@ -7,7 +7,7 @@ import os
 import xacro
 
 def generate_launch_description():
-    pkg_path = get_package_share_directory('URDF_description')
+    pkg_path = get_package_share_directory('urdf_description')
     
     # Process Xacro
     xacro_file = os.path.join(pkg_path, 'urdf', 'URDF.xacro')

@@ -8,9 +8,13 @@ endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rclcpp_action REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(geographic_msgs REQUIRED)
 find_package(geodesy REQUIRED)
+find_package(nav2_msgs REQUIRED)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -28,8 +32,13 @@ add_executable(beacon_goalpose src/beacon_goalpose.cpp)
 
 ament_target_dependencies(beacon_goalpose
   rclcpp
+  rclcpp_action
+  std_msgs
   sensor_msgs
+  geometry_msgs
+  geographic_msgs
   geodesy
+  nav2_msgs
 )
 
 install(TARGETS
@@ -39,6 +48,7 @@ install(TARGETS
 
 install(DIRECTORY
   launch
+  config
   DESTINATION share/${PROJECT_NAME}
 )
 

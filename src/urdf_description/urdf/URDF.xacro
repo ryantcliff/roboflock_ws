@@ -531,6 +531,21 @@
   </collision>
 </link>
 
+<!-- Update these zero-offset joints after measuring the installed sensors. -->
+<link name="imu_link"/>
+<joint name="imu_joint" type="fixed">
+  <parent link="base_link"/>
+  <child link="imu_link"/>
+  <origin xyz="0 0 0" rpy="0 0 0"/>
+</joint>
+
+<link name="gps_link"/>
+<joint name="gps_joint" type="fixed">
+  <parent link="base_link"/>
+  <child link="gps_link"/>
+  <origin xyz="0 0 0" rpy="0 0 0"/>
+</joint>
+
 <joint name="left_pushbar_joint" type="fixed">
   <origin xyz="-0.18877 0.09187 -0.1479" rpy="0 0 0"/>
   <parent link="diff_bar_1"/>

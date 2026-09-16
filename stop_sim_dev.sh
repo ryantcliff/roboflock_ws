@@ -4,6 +4,7 @@ echo "Stopping RoboFlock simulation environment..."
 
 # Ask processes to shut down normally first
 pkill -TERM -f "ros2 launch bring_up sim.launch.py" 2>/dev/null || true
+pkill -TERM -f "ros2 launch bring_up robot.launch.py mode:=simulation" 2>/dev/null || true
 pkill -TERM -f "slam_toolbox"                       2>/dev/null || true
 pkill -TERM -f "rviz2"                              2>/dev/null || true
 pkill -TERM -f "teleop_twist_keyboard"              2>/dev/null || true
@@ -11,6 +12,9 @@ pkill -TERM -f "odom_tf_broadcaster"                2>/dev/null || true
 pkill -TERM -f "robot_state_publisher"              2>/dev/null || true
 pkill -TERM -f "parameter_bridge"                   2>/dev/null || true
 pkill -TERM -f "static_transform_publisher"         2>/dev/null || true
+pkill -TERM -f "velocity_safety"                    2>/dev/null || true
+pkill -TERM -f "simulated_gps"                      2>/dev/null || true
+pkill -TERM -f "beacon_goalpose"                    2>/dev/null || true
 
 # Gazebo / Ignition
 pkill -TERM -f "gz sim"                             2>/dev/null || true
@@ -28,6 +32,9 @@ pkill -KILL -f "odom_tf_broadcaster"                2>/dev/null || true
 pkill -KILL -f "robot_state_publisher"              2>/dev/null || true
 pkill -KILL -f "parameter_bridge"                   2>/dev/null || true
 pkill -KILL -f "static_transform_publisher"         2>/dev/null || true
+pkill -KILL -f "velocity_safety"                    2>/dev/null || true
+pkill -KILL -f "simulated_gps"                      2>/dev/null || true
+pkill -KILL -f "beacon_goalpose"                    2>/dev/null || true
 pkill -KILL -f "gz sim"                             2>/dev/null || true
 pkill -KILL -f "ign gazebo"                         2>/dev/null || true
 pkill -KILL -f "gzserver"                           2>/dev/null || true
@@ -45,5 +52,5 @@ echo "RoboFlock processes stopped."
 echo
 echo "Checking for leftovers..."
 
-pgrep -af "gz sim|ign gazebo|gzserver|gzclient|slam_toolbox|rviz2|teleop_twist_keyboard|odom_tf_broadcaster|robot_state_publisher|parameter_bridge|static_transform_publisher" \
+pgrep -af "gz sim|ign gazebo|gzserver|gzclient|slam_toolbox|rviz2|teleop_twist_keyboard|odom_tf_broadcaster|robot_state_publisher|parameter_bridge|static_transform_publisher|velocity_safety|simulated_gps|beacon_goalpose" \
     || echo "No RoboFlock simulation processes found."

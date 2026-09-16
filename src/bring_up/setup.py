@@ -14,6 +14,9 @@ setup(
         ('share/' + package_name, ['package.xml']),
         (os.path.join('share', package_name, 'launch'), glob('launch/*.py')),
         (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
+        (os.path.join('share', package_name, 'config'), glob('config/*.rviz')),
+        (os.path.join('share', package_name, 'worlds'), glob('worlds/*.sdf')),
+        (os.path.join('share', package_name, 'systemd'), glob('systemd/*')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -30,6 +33,8 @@ setup(
         'console_scripts': [
             'diff_drive_controller = bring_up.diff_drive_controller:main',
             'odom_tf_broadcaster = bring_up.odom_tf_broadcaster:main',
+            'velocity_safety = bring_up.velocity_safety:main',
+            'simulated_gps = bring_up.simulated_gps:main',
         ],
     },
 )

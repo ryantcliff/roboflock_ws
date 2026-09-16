@@ -15,3 +15,4 @@ imu:
     accel_y_offset: 0.0 # [m/s²]
     accel_z_offset: 0.0 # [m/s²]
     frequency: 100 # [Hz]
+    frame_id: imu_link

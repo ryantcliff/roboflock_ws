@@ -1,7 +1,10 @@
 #include "mpu9250driver/mpu9250driver.h"
 
 #include <chrono>
+#include <cmath>
 #include <memory>
+#include <stdexcept>
+#include <string>
 
 #include "LinuxI2cCommunicator.h"
 
@@ -36,27 +39,31 @@ MPU9250Driver::MPU9250Driver() : Node("mpu9250publisher")
   mpu9250_->printOffsets();
   // Create publisher
   publisher_ = this->create_publisher<sensor_msgs::msg::Imu>("/imu/data", 10);
-  std::chrono::duration<int64_t, std::milli> frequency =
-      1000ms / this->get_parameter("gyro_range").as_int();
-  timer_ = this->create_wall_timer(frequency, std::bind(&MPU9250Driver::handleInput, this));
+  const int frequency_hz = this->get_parameter("frequency").as_int();
+  if (frequency_hz <= 0) {
+    throw std::invalid_argument("frequency must be greater than zero");
+  }
+  const auto period = std::chrono::duration_cast<std::chrono::nanoseconds>(
+      std::chrono::duration<double>(1.0 / static_cast<double>(frequency_hz)));
+  timer_ = this->create_wall_timer(period, std::bind(&MPU9250Driver::handleInput, this));
 }
 
 void MPU9250Driver::handleInput()
 {
   auto message = sensor_msgs::msg::Imu();
   message.header.stamp = this->get_clock()->now();
-  message.header.frame_id = "base_link";
+  message.header.frame_id = this->get_parameter("frame_id").as_string();
   // Direct measurements
-  message.linear_acceleration_covariance = {0};
+  message.linear_acceleration_covariance = {0.1, 0.0, 0.0, 0.0, 0.1, 0.0, 0.0, 0.0, 0.1};
   message.linear_acceleration.x = mpu9250_->getAccelerationX();
   message.linear_acceleration.y = mpu9250_->getAccelerationY();
   message.linear_acceleration.z = mpu9250_->getAccelerationZ();
-  message.angular_velocity_covariance[0] = {0};
+  message.angular_velocity_covariance = {0.02, 0.0, 0.0, 0.0, 0.02, 0.0, 0.0, 0.0, 0.02};
   message.angular_velocity.x = mpu9250_->getAngularVelocityX();
   message.angular_velocity.y = mpu9250_->getAngularVelocityY();
   message.angular_velocity.z = mpu9250_->getAngularVelocityZ();
   // Calculate euler angles, convert to quaternion and store in message
-  message.orientation_covariance = {0};
+  message.orientation_covariance = {0.05, 0.0, 0.0, 0.0, 0.05, 0.0, 0.0, 0.0, 0.1};
   calculateOrientation(message);
   publisher_->publish(message);
 }
@@ -73,7 +80,8 @@ void MPU9250Driver::declareParameters()
   this->declare_parameter<double>("accel_x_offset", 0.0);
   this->declare_parameter<double>("accel_y_offset", 0.0);
   this->declare_parameter<double>("accel_z_offset", 0.0);
-  this->declare_parameter<int>("frequency", 0.0);
+  this->declare_parameter<int>("frequency", 100);
+  this->declare_parameter<std::string>("frame_id", "imu_link");
 }
 
 void MPU9250Driver::calculateOrientation(sensor_msgs::msg::Imu& imu_message)
@@ -81,7 +89,7 @@ void MPU9250Driver::calculateOrientation(sensor_msgs::msg::Imu& imu_message)
   // Calculate Euler angles
   double roll, pitch, yaw;
   roll = atan2(imu_message.linear_acceleration.y, imu_message.linear_acceleration.z);
-  pitch = atan2(-imu_message.linear_acceleration.y,
+  pitch = atan2(-imu_message.linear_acceleration.x,
                 (sqrt(imu_message.linear_acceleration.y * imu_message.linear_acceleration.y +
                       imu_message.linear_acceleration.z * imu_message.linear_acceleration.z)));
   yaw = atan2(mpu9250_->getMagneticFluxDensityY(), mpu9250_->getMagneticFluxDensityX());

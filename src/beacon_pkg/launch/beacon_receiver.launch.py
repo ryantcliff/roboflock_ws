@@ -14,7 +14,7 @@ def generate_launch_description():
         Node(
             package='nmea_navsat_driver', 
             executable='nmea_serial_driver', 
-            name='gps',
+            name='beacon_gps',
             output='screen',
             parameters=[config],
             remappings=[('/fix', '/gps/beacon/fix')]

@@ -16,7 +16,7 @@ def generate_launch_description():
             name='ekf_filter_node_odom',
             output='screen',
             parameters=[ekf_config],
-            remappings=[('/odometry/filtered', '/odometry/local')]
+            remappings=[('/odometry/filtered', '/odom')]
         ),
         Node(
             package='robot_localization',
@@ -34,7 +34,7 @@ def generate_launch_description():
             parameters=[ekf_config],
             remappings=[
                 ('/gps/fix', '/gps/robot/fix'),
-                ('/odometry/filtered', '/odometry/global')
+                ('/odometry/filtered', '/odom')
             ]
         )
     ])

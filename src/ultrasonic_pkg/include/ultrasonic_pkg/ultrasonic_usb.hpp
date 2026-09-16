@@ -1,7 +1,7 @@
 #ifndef ULTRASONIC_USB_HPP
 #define ULTRASONIC_USB_HPP
 
-const char ARDUINO_PORT[] = "/dev/ttyACM0";
+#include <string>
 
 const uint8_t PACKETLEN = 8;
 const uint8_t START		= 0xCA;
@@ -21,7 +21,8 @@ const uint8_t idx_stop 		 = 7;
 
 const unsigned char REQUEST[] = { 0xBE };
 
-int init_arduino (void);
+int init_arduino(const std::string & port);
+void close_arduino();
 void get_arduino_data (uint8_t *, uint8_t *, uint8_t *);
 
 

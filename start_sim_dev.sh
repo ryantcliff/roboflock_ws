@@ -36,7 +36,7 @@ gnome-terminal \
     -- bash -lc "
         $ROS_ENV
         echo '=== RoboFlock Simulation ==='
-        ros2 launch bring_up sim.launch.py
+        ros2 launch bring_up robot.launch.py mode:=simulation
         exec bash
     " &
 
@@ -52,46 +52,13 @@ gnome-terminal \
     -- bash -lc "
         $ROS_ENV
         echo '=== Keyboard Teleop ==='
-        ros2 run teleop_twist_keyboard teleop_twist_keyboard
+        ros2 run teleop_twist_keyboard teleop_twist_keyboard \
+            --ros-args -r /cmd_vel:=/cmd_vel/teleop
         exec bash
     " &
 
 # -------------------------------------------------
-# Terminal 3: RViz
-# -------------------------------------------------
-
-gnome-terminal \
-    --title="RoboFlock - RViz" \
-    -- bash -lc "
-        $ROS_ENV
-        echo '=== RViz ==='
-        rviz2 -d $WORKSPACE/src/bring_up/config/roboflock_sim.rviz --ros-args -p use_sim_time:=true
-        exec bash
-    " &
-
-# -------------------------------------------------
-# Terminal 4: SLAM Toolbox
-# -------------------------------------------------
-
-gnome-terminal \
-    --title="RoboFlock - SLAM" \
-    -- bash -lc "
-        $ROS_ENV
-        echo 'Waiting for simulation to initialize...'
-        sleep 6
-
-        echo '=== SLAM Toolbox ==='
-
-        ros2 run slam_toolbox async_slam_toolbox_node \
-            --ros-args \
-            --params-file $WORKSPACE/src/bring_up/config/slam_params.yaml \
-            -p use_sim_time:=true
-
-        exec bash
-    " &
-
-# -------------------------------------------------
-# Terminal 5: Diagnostics / ROS shell
+# Terminal 3: Diagnostics / ROS shell
 # -------------------------------------------------
 
 gnome-terminal \
@@ -126,8 +93,6 @@ echo
 echo "RoboFlock terminals launched."
 echo
 echo "Expected windows:"
-echo "  1. Simulation"
+echo "  1. Simulation, SLAM, and RViz"
 echo "  2. Teleop"
-echo "  3. RViz"
-echo "  4. SLAM"
-echo "  5. Diagnostics"
+echo "  3. Diagnostics"

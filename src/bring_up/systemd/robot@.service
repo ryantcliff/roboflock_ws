@@ -1,0 +1,23 @@
+[Unit]
+Description=RoboFlock autonomous robot
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=%i
+WorkingDirectory=/home/%i/roboflock_ws
+Environment=ROS_DOMAIN_ID=0
+Environment=ROS_LOCALHOST_ONLY=1
+ExecStartPre=/usr/bin/test -e /dev/rplidar
+ExecStartPre=/usr/bin/test -e /dev/gps_robot
+ExecStartPre=/usr/bin/test -e /dev/hc12
+ExecStartPre=/usr/bin/test -e /dev/ultrasonic
+ExecStart=/bin/bash -lc 'source /opt/ros/humble/setup.bash && source install/setup.bash && exec ros2 launch bring_up robot.launch.py mode:=autonomous'
+KillSignal=SIGINT
+TimeoutStopSec=15
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

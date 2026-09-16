@@ -1,0 +1,21 @@
+diff_drive_controller:
+  ros__parameters:
+    command_topic: /cmd_vel/safe
+    command_timeout: 0.5
+    wheel_radius: 0.10
+    wheel_separation: 0.64
+    gear_ratio: 30.0
+    max_motor_turns_per_second: 60.0
+    velocity_ramp_rate: 10.0
+    front_right:
+      serial_number: "316633543334"
+      polarity: -1.0
+    front_left:
+      serial_number: "357B358B3135"
+      polarity: 1.0
+    rear_right:
+      serial_number: "336636543334"
+      polarity: -1.0
+    rear_left:
+      serial_number: "336536573334"
+      polarity: 1.0

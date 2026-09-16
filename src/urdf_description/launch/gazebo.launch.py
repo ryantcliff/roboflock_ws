@@ -1,90 +1,27 @@
-<<<<<<< HEAD
-from launch_ros.actions import Node
-from launch_ros.substitutions import FindPackageShare
-from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription
-from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import PathJoinSubstitution
 import os
-import xacro
-from ament_index_python.packages import get_package_share_directory
 
-
-def generate_launch_description():
-    share_dir = get_package_share_directory('URDF_description')
-
-    xacro_file = os.path.join(share_dir, 'urdf', 'URDF.xacro')
-    robot_description_config = xacro.process_file(xacro_file)
-    robot_urdf = robot_description_config.toxml()
-
-=======
-import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import IncludeLaunchDescription, TimerAction
 from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.substitutions import PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
-from launch.substitutions import PathJoinSubstitution
 import xacro
 
+
 def generate_launch_description():
-    pkg_name = 'URDF_description'
+    pkg_name = 'urdf_description'
     pkg_share = get_package_share_directory(pkg_name)
 
-    # Process URDF file
     xacro_file = os.path.join(pkg_share, 'urdf', 'URDF.xacro')
     doc = xacro.process_file(xacro_file)
     robot_urdf = doc.toxml()
 
-    # Robot State Publisher
->>>>>>> faa0e8358101bead9ad2591501b71885c5b5ade5
     robot_state_publisher_node = Node(
         package='robot_state_publisher',
         executable='robot_state_publisher',
         name='robot_state_publisher',
-<<<<<<< HEAD
-        parameters=[
-            {'robot_description': robot_urdf}
-        ]
-    )
-
-    joint_state_publisher_node = Node(
-        package='joint_state_publisher',
-        executable='joint_state_publisher',
-        name='joint_state_publisher'
-    )
-
-    gazebo_server = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource([
-            PathJoinSubstitution([
-                FindPackageShare('gazebo_ros'),
-                'launch',
-                'gzserver.launch.py'
-            ])
-        ]),
-        launch_arguments={
-            'pause': 'true'
-        }.items()
-    )
-
-    gazebo_client = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource([
-            PathJoinSubstitution([
-                FindPackageShare('gazebo_ros'),
-                'launch',
-                'gzclient.launch.py'
-            ])
-        ])
-    )
-
-    urdf_spawn_node = Node(
-        package='gazebo_ros',
-        executable='spawn_entity.py',
-        arguments=[
-            '-entity', 'URDF',
-            '-topic', 'robot_description'
-=======
         parameters=[{
             'robot_description': robot_urdf,
             'use_sim_time': True
@@ -92,7 +29,6 @@ def generate_launch_description():
         output='screen'
     )
 
-    # Launch Gazebo Ignition
     gazebo = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([
             PathJoinSubstitution([
@@ -104,7 +40,6 @@ def generate_launch_description():
         launch_arguments={'gz_args': '-r empty.sdf'}.items()
     )
 
-    # Spawn Robot into Gazebo Ignition
     spawn_robot = Node(
         package='ros_gz_sim',
         executable='create',
@@ -112,20 +47,10 @@ def generate_launch_description():
             '-name', 'my_bot',
             '-topic', 'robot_description',
             '-z', '0.5'
->>>>>>> faa0e8358101bead9ad2591501b71885c5b5ade5
         ],
         output='screen'
     )
 
-<<<<<<< HEAD
-    return LaunchDescription([
-        robot_state_publisher_node,
-        joint_state_publisher_node,
-        gazebo_server,
-        gazebo_client,
-        urdf_spawn_node,
-=======
-    # Bridge between Gazebo topics and ROS topics
     bridge = Node(
         package='ros_gz_bridge',
         executable='parameter_bridge',
@@ -146,7 +71,6 @@ def generate_launch_description():
         output='screen'
     )
 
-    # TF relay to publish Gazebo TF to ROS TF
     tf_relay = Node(
         package='topic_tools',
         executable='relay',
@@ -155,7 +79,6 @@ def generate_launch_description():
         output='screen'
     )
 
-    # Joint State Publisher
     joint_state_publisher_node = Node(
         package='joint_state_publisher',
         executable='joint_state_publisher',
@@ -165,7 +88,6 @@ def generate_launch_description():
         }]
     )
 
-    # RViz
     rviz = Node(
         package='rviz2',
         executable='rviz2',
@@ -181,5 +103,4 @@ def generate_launch_description():
         TimerAction(period=10.0, actions=[bridge]),
         tf_relay,
         rviz
->>>>>>> faa0e8358101bead9ad2591501b71885c5b5ade5
     ])

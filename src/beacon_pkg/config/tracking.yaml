@@ -1,0 +1,6 @@
+beacon_goalpose:
+  ros__parameters:
+    stand_off_distance: 2.0
+    goal_update_distance: 1.0
+    goal_update_period: 2.0
+    fix_timeout: 3.0

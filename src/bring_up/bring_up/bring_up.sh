@@ -1,9 +1,8 @@
 #!/bin/bash
+set -e
+
 source /opt/ros/humble/setup.bash
-cd /home/roboflock/roboflock_ws/   # absolute path
+cd "${HOME}/roboflock_ws"
 source install/setup.bash
 
-ros2 run joy joy_node &            # background it so script continues
-ros2 run bring_up self_destruct &
-ros2 run bring_up diff_drive_controller
-
+exec ros2 launch bring_up robot.launch.py mode:=autonomous

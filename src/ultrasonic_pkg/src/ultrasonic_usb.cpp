@@ -12,17 +12,17 @@
 #include <unistd.h>
 #include "ultrasonic_pkg/ultrasonic_usb.hpp"
 
-int arduino_fd;
+int arduino_fd = -1;
 
-int init_arduino(void)
+int init_arduino(const std::string & port)
 {
 	/* Open USB "file" as Read-Write (O_RDWR)
 	 * and do not become process's controlling terminal
 	*/
-	arduino_fd = open (ARDUINO_PORT, O_RDWR | O_NOCTTY);
+	arduino_fd = open(port.c_str(), O_RDWR | O_NOCTTY);
 	if (arduino_fd < 0)
 	{
-		return errno;
+		return -errno;
 	}
 	
 	struct termios tty;
@@ -31,7 +31,8 @@ int init_arduino(void)
 	if (tcgetattr(arduino_fd, &tty) != 0)
 	{
 		close(arduino_fd);
-		return errno;
+		arduino_fd = -1;
+		return -errno;
 	}
 	
 	cfsetispeed(&tty, B9600);
@@ -69,7 +70,8 @@ int init_arduino(void)
 	if (tcsetattr(arduino_fd, TCSANOW, &tty) != 0)
 	{
 		close(arduino_fd);
-		return errno;
+		arduino_fd = -1;
+		return -errno;
 	}
 	
 	/* Discards data written but not transmitted,
@@ -78,6 +80,15 @@ int init_arduino(void)
 	tcflush(arduino_fd, TCIOFLUSH);
 	
 	return 0;
+}
+
+void close_arduino()
+{
+	if (arduino_fd >= 0)
+	{
+		close(arduino_fd);
+		arduino_fd = -1;
+	}
 }
 
 void get_arduino_data (uint8_t *l, uint8_t *c, uint8_t *r)
@@ -157,7 +168,6 @@ void get_arduino_data (uint8_t *l, uint8_t *c, uint8_t *r)
 	*c = (uint8_t)(unsigned char)read_buf[idx_centerdata];
 	*r = (uint8_t)(unsigned char)read_buf[idx_rightdata];
 }
-
 
 
 

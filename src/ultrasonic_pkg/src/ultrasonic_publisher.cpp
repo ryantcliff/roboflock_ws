@@ -34,7 +34,7 @@ UltrasonicPublisher::UltrasonicPublisher(const rclcpp::NodeOptions & options)
 	
 	for (size_t i = 0; i < frame_ids_.size(); i++)
 	{
-		std::string topic = "range/" + frame_ids_[i];
+		const std::string & topic = topic_names_[i];
 		auto publisher = this->create_publisher<sensor_msgs::msg::Range>(topic, 10);
 		
 		publishers_.push_back(publisher);
@@ -44,7 +44,7 @@ UltrasonicPublisher::UltrasonicPublisher(const rclcpp::NodeOptions & options)
 	}
 	
 	sensor_data_.resize(frame_ids_.size());
-	sensor_msgs_.resize(frame_ids_.size());
+	sensor_msgs_.reserve(frame_ids_.size());
 	
 	if (!initialize_sensors())
 	{
@@ -67,30 +67,29 @@ UltrasonicPublisher::UltrasonicPublisher(const rclcpp::NodeOptions & options)
 
 UltrasonicPublisher::~UltrasonicPublisher()
 {
+	close_arduino();
 	RCLCPP_INFO(this->get_logger(), "Ultrasonic publisher shutting down...");
 }
 
 bool 
 UltrasonicPublisher::initialize_sensors()
 {
-	auto ret = init_arduino();
-	switch (ret)
+	const int ret = init_arduino(serial_port_);
+	if (ret < 0)
 	{
-	case -1:
-		RCLCPP_ERROR(this->get_logger(), "Failed to open.\n");
-		break;
-	case -2:
-		RCLCPP_ERROR(this->get_logger(), "Failed to get attributes.\n");
-		break;
-	case -3:
-		RCLCPP_ERROR(this->get_logger(), "Failed to configure.\n");
-		break;
-	default:
-		RCLCPP_INFO(this->get_logger(), "Successfully initialized Arduino.\n");
-		break;
+		RCLCPP_ERROR(
+			this->get_logger(),
+			"Failed to initialize Arduino on %s: %s",
+			serial_port_.c_str(),
+			std::strerror(-ret)
+		);
+		return false;
 	}
-	
-	if (ret < 0) { return false; }
+	RCLCPP_INFO(
+		this->get_logger(),
+		"Successfully initialized Arduino on %s",
+		serial_port_.c_str()
+	);
 	
 	for (size_t i = 0; i < frame_ids_.size(); i++)
 	{
@@ -117,6 +116,14 @@ UltrasonicPublisher::declare_parameters()
 			"right_ultrasonic"
 		}
 	);
+	this->declare_parameter<std::vector<std::string>>("topic_names",
+		std::vector<std::string>{
+			"/ultrasonic/left",
+			"/ultrasonic/center",
+			"/ultrasonic/right"
+		}
+	);
+	this->declare_parameter<std::string>("serial_port", "/dev/ultrasonic");
 	
 	this->declare_parameter<double>("update_rate", 20.0); // Hz
 	this->declare_parameter<double>("field_of_view", 0.5236); // ~30 degrees
@@ -125,6 +132,8 @@ UltrasonicPublisher::declare_parameters()
 	this->declare_parameter<bool>("publish_tf", false);
 	
 	frame_ids_ = this->get_parameter("frame_ids").as_string_array();
+	topic_names_ = this->get_parameter("topic_names").as_string_array();
+	serial_port_ = this->get_parameter("serial_port").as_string();
 	
 	if (frame_ids_.empty())
 	{
@@ -136,6 +145,15 @@ UltrasonicPublisher::declare_parameters()
 			"left_ultrasonic", 
 			"center_ultrasonic",
 			"right_ultrasonic"
+		};
+	}
+	if (topic_names_.size() != frame_ids_.size())
+	{
+		RCLCPP_WARN(this->get_logger(), "Invalid topic_names; using defaults");
+		topic_names_ = {
+			"/ultrasonic/left",
+			"/ultrasonic/center",
+			"/ultrasonic/right"
 		};
 	}
 	
@@ -268,9 +286,10 @@ UltrasonicPublisher::publish_data()
 	for (size_t i = 0; i < publishers_.size(); i++)
 	{
 		sensor_msgs_[i].header.stamp = now;
-		if (sensor_data_[i] <= 200)
+		const double distance_m = static_cast<double>(sensor_data_[i]) / 100.0;
+		if (distance_m >= min_range_ && distance_m <= max_range_)
 		{
-			sensor_msgs_[i].range = sensor_data_[i];
+			sensor_msgs_[i].range = distance_m;
 			publishers_[i]->publish(sensor_msgs_[i]);
 			RCLCPP_INFO(this->get_logger(),
 				"Published %s: range=%f\n",
@@ -306,7 +325,6 @@ main (int argc, char * argv[])
 	rclcpp::shutdown();
 	return 0;
 }
-
 
 
 
