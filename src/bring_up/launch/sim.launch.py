@@ -87,10 +87,36 @@ def generate_launch_description():
         ],
         output='screen'
     )
-
+    odom_tf_broadcaster = Node(
+        package='bring_up',
+        executable='odom_tf_broadcaster',
+        name='odom_tf_broadcaster',
+        output='screen',
+        parameters=[
+            {'use_sim_time': True}
+        ]
+    )
+    lidar_frame_bridge = Node(
+    package='tf2_ros',
+    executable='static_transform_publisher',
+    name='lidar_frame_bridge',
+    arguments=[
+        '--x', '0',
+        '--y', '0',
+        '--z', '0',
+        '--roll', '0',
+        '--pitch', '0',
+        '--yaw', '0',
+        '--frame-id', 'lidar_link',
+        '--child-frame-id', 'roboflock/base_link/lidar',
+    ],
+    output='screen'
+)
     return LaunchDescription([
         gazebo,
         robot_state_publisher,
+        odom_tf_broadcaster,
+        lidar_frame_bridge,
 
         TimerAction(
             period=2.0,

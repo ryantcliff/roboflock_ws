@@ -29,6 +29,7 @@ setup(
     entry_points={
         'console_scripts': [
             'diff_drive_controller = bring_up.diff_drive_controller:main',
+            'odom_tf_broadcaster = bring_up.odom_tf_broadcaster:main',
         ],
     },
 )

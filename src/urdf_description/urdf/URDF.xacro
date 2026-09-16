@@ -680,7 +680,7 @@
 <joint name="lidar_joint" type="fixed">
   <parent link="hull_top_1"/>
   <child link="lidar_link"/>
-  <origin xyz="-0.2999999663283473 0 0.25" rpy="0 0 0"/> 
+  <origin xyz="-0.2999999663283473 0 0.10" rpy="0 0 0"/> 
 </joint>
 
 </robot>
