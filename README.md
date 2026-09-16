@@ -27,15 +27,26 @@ src/    ROS 2 packages (nodes, controllers, launch, config)
 ## Build
 Standard ROS 2 colcon workspace:
 ```bash
-cd roboflock_ws
+source /opt/ros/humble/setup.bash
+cd /path/to/your/roboflock_workspace
 rosdep install --from-paths src --ignore-src -r -y
 python3 -m pip install -r requirements.txt
 colcon build --symlink-install
-source install/setup.bash
+source ./srcros
 ```
 See the [documentation](https://roboflock-documentation.readthedocs.io/en/latest/) for dependencies, hardware setup, and launch instructions.
 
 ## Run
+
+For the complete simulation development environment, including keyboard teleop
+and a diagnostics shell:
+
+```bash
+./start_sim_dev.sh
+```
+
+Both `srcros` and `start_sim_dev.sh` locate the workspace from their own file
+location, so the checkout directory does not need to be named `roboflock_ws`.
 
 Use the unified launch entry point for all supported modes:
 

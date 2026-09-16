@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+
+# Source this file to load ROS 2 and the RoboFlock overlay into the current shell.
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    echo "This helper must be sourced so it can update the current shell."
+    echo "Run: source \"$(dirname -- "$0")/srcros\""
+    exit 1
+fi
+
+_roboflock_workspace="$(
+    cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd -P
+)"
+_roboflock_ros_setup="/opt/ros/humble/setup.bash"
+_roboflock_ws_setup="${_roboflock_workspace}/install/setup.bash"
+
+if [[ ! -f "${_roboflock_ros_setup}" ]]; then
+    echo "RoboFlock: ROS 2 Humble setup not found: ${_roboflock_ros_setup}" >&2
+    unset _roboflock_workspace _roboflock_ros_setup _roboflock_ws_setup
+    return 1
+fi
+
+if [[ ! -f "${_roboflock_ws_setup}" ]]; then
+    echo "RoboFlock: workspace has not been built: ${_roboflock_ws_setup}" >&2
+    echo "Run 'colcon build --symlink-install' in the workspace first." >&2
+    unset _roboflock_workspace _roboflock_ros_setup _roboflock_ws_setup
+    return 1
+fi
+
+source "${_roboflock_ros_setup}" || return 1
+source "${_roboflock_ws_setup}" || return 1
+cd -- "${_roboflock_workspace}" || return 1
+
+export ROS_DOMAIN_ID="${ROS_DOMAIN_ID:-0}"
+export ROS_LOCALHOST_ONLY="${ROS_LOCALHOST_ONLY:-1}"
+
+echo "ROS 2 Humble + RoboFlock workspace sourced: ${_roboflock_workspace}"
+
+unset _roboflock_workspace _roboflock_ros_setup _roboflock_ws_setup
