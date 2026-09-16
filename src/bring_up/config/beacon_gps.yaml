@@ -3,5 +3,9 @@ beacon_gps:
     frequency: 5.0
     port: /dev/hc12
     baud: 9600
+<<<<<<< HEAD
     frame_id: gps_beacon
+=======
+    frame_id: gps
+>>>>>>> upstream/dev
     useRMC: false  #false is GGA

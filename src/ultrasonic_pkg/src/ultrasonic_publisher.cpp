@@ -46,13 +46,7 @@ UltrasonicPublisher::UltrasonicPublisher(const rclcpp::NodeOptions & options)
 	sensor_data_.resize(frame_ids_.size());
 	sensor_msgs_.reserve(frame_ids_.size());
 	
-	if (!initialize_sensors())
-	{
-		RCLCPP_ERROR(this->get_logger(), 
-			"Failed to initialize ultrasonic sensors."
-		);
-		return;
-	}
+	if (!initialize_sensors()) { return; }
 	
 	int period_ms = static_cast<int>(1000.0 / update_rate_);
 	timer_ = this->create_wall_timer(
@@ -74,6 +68,7 @@ UltrasonicPublisher::~UltrasonicPublisher()
 bool 
 UltrasonicPublisher::initialize_sensors()
 {
+<<<<<<< HEAD
 	const int ret = init_arduino(serial_port_);
 	if (ret < 0)
 	{
@@ -90,6 +85,20 @@ UltrasonicPublisher::initialize_sensors()
 		"Successfully initialized Arduino on %s",
 		serial_port_.c_str()
 	);
+=======
+	auto ret = init_arduino();
+	if (ret == 0)
+	{
+		RCLCPP_INFO(this->get_logger(), "Successfully initialized Arduino connection.");
+	}
+	else
+	{
+		RCLCPP_ERROR(this->get_logger(),
+			strerror(ret)
+		);
+		return false;
+	}
+>>>>>>> upstream/dev
 	
 	for (size_t i = 0; i < frame_ids_.size(); i++)
 	{
@@ -291,14 +300,14 @@ UltrasonicPublisher::publish_data()
 		{
 			sensor_msgs_[i].range = distance_m;
 			publishers_[i]->publish(sensor_msgs_[i]);
-			RCLCPP_INFO(this->get_logger(),
+			RCLCPP_DEBUG(this->get_logger(),
 				"Published %s: range=%f\n",
 				frame_ids_[i].c_str(), sensor_msgs_[i].range
 			);
 		}
 		else
 		{
-			RCLCPP_INFO(this->get_logger(),
+			RCLCPP_DEBUG(this->get_logger(),
 				"Invalid data from %s\n",
 				frame_ids_[i].c_str()
 			);
@@ -311,6 +320,10 @@ void
 UltrasonicPublisher::timer_callback()
 {
 	get_arduino_data(&sensor_data_[LEFT], &sensor_data_[CENTER], &sensor_data_[RIGHT]);	
+	RCLCPP_DEBUG(this->get_logger(),
+		"Received data - Left: %d, Center: %d, Right: %d\n",
+		sensor_data_[LEFT], sensor_data_[CENTER], sensor_data_[RIGHT]
+	);
 	publish_data();
 }
 		

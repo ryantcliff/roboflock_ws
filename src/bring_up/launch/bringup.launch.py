@@ -81,7 +81,7 @@ def generate_launch_description():
 	)
 	
 	laser_odom_launch_file = os.path.join(
-		get_package_share_directory('rf2o_laser_odometry'),
+		get_package_share_directory('bring_up'),
 		'launch',
 		'rf2o_laser_odometry.launch.py'
 	)
@@ -140,6 +140,7 @@ def generate_launch_description():
 		description='If true, use xacro to process the URDF'
 	)
 	
+<<<<<<< HEAD
 	urdf_file = os.path.join(
     get_package_share_directory('urdf_description'),
     'urdf',
@@ -155,6 +156,13 @@ def generate_launch_description():
 		'config',
 		'motor_controller.yaml'
 	)
+=======
+	# urdf_file = os.path.join(
+    # get_package_share_directory('urdf_description'),
+    # 'urdf',
+    # 'URDF.xacro'
+	# )	
+>>>>>>> upstream/dev
     
 	# 0.) Static Transforms >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 	
@@ -251,14 +259,30 @@ def generate_launch_description():
 	
 	# 6.) Nav2 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 	
+<<<<<<< HEAD
 	nav2_node = GroupAction(actions=[
 		LogInfo(msg="*** Starting Nav2 ***"),
 		SetRemap(src='/cmd_vel', dst='/cmd_vel/nav'),
+=======
+	# nav2_node = GroupAction([
+	# 	LogInfo(msg="*** Starting Nav2 ***"),
+>>>>>>> upstream/dev
 		
-		IncludeLaunchDescription(
-			PythonLaunchDescriptionSource(nav2_launch_file),
-		),
+	# 	Node(
+    #     		package='twist_mux',
+    #     		executable='twist_mux',
+    #     		name='twist_mux',
+    #     		parameters=[os.path.join(
+    #         			get_package_share_directory('bring_up'),
+    #         			'config', 'twist_mux.yaml'
+    #     		)],
+    #    			 remappings=[('/cmd_vel_out', '/cmd_vel')]
+    # 		),
+	# 	IncludeLaunchDescription(
+	# 		PythonLaunchDescriptionSource(nav2_launch_file),
+	# 	),
 		
+<<<<<<< HEAD
 	], condition=IfCondition(LaunchConfiguration('nav2')))
 
 	tracking_node = GroupAction(actions=[
@@ -267,6 +291,12 @@ def generate_launch_description():
 			PythonLaunchDescriptionSource(goalpose_launch_file),
 		),
 	], condition=IfCondition(LaunchConfiguration('tracking')))
+=======
+	# 	IncludeLaunchDescription(
+	# 		PythonLaunchDescriptionSource(goalpose_launch_file),
+	# 	),
+	# ])
+>>>>>>> upstream/dev
 	
 	
 	return launch.LaunchDescription([
@@ -278,7 +308,11 @@ def generate_launch_description():
 	
 		static_tf_node,	
 		gps_nodes,
+<<<<<<< HEAD
 		safety_node,
+=======
+		
+>>>>>>> upstream/dev
 		TimerAction(
             period=3.0,
             actions=[sensor_nodes]
@@ -300,72 +334,18 @@ def generate_launch_description():
 		),
  
         TimerAction(
-            period=18.0,
+            period=20.0,
             actions=[nav2_node]
         ),
+<<<<<<< HEAD
         TimerAction(
             period=20.0,
             actions=[tracking_node]
         ),
     ])
+=======
+     ])
+>>>>>>> upstream/dev
 		
-	# 	RegisterEventHandler(
-	# 		event_handler=OnProcessIO(
-	# 			target_action=sensor_nodes,
-	# 			on_stdout=lambda event: LogInfo(
-	# 				msg=f"Found: {event.text.decode()}"
-	# 			),
-	# 			on_stdout_regex=r"*Ultrasonic Publisher initialized*",
-	# 			on_start=localization_nodes
-	# 		)
-	# 	),
-		
-	# 	RegisterEventHandler(
-	# 		event_handler=OnProcessIO(
-	# 			target_action=localization_nodes,
-	# 			on_stdout=lambda event: LogInfo(
-	# 				msg=f"Found: {event.text.decode()}"
-	# 			),
-	# 			on_stdout_regex=r"*Localization nodes initialized*",
-	# 			on_start=slam_node
-	# 		)
-	# 	),
-		
-	# 	RegisterEventHandler(
-	# 		event_handler=OnProcessIO(
-	# 			target_action=slam_node,
-	# 			on_stdout=lambda event: LogInfo(
-	# 				msg=f"Found: {event.text.docode()}"
-	# 			),
-	# 			on_stdout_regex=r"*SLAM toolbox node intialized*",
-	# 			on_start=motor_node
-	# 		)
-	# 	),
-		
-	# 	RegisterEventHandler(
-	# 		event_handler=OnProcessIO(
-	# 			target_action=motor_node,
-	# 			on_stdout=lambda event: LogInfo(
-	# 				msg=f"Found: {event.text.decode()}"
-	# 			),
-	# 			on_stdout_regex=r"Motors initialized*",
-	# 			on_start=nav2_node
-	# 		)
-	# 	),
-		
-	# 	RegisterEventHandler(
-	# 		event_handler=OnProcessIO(
-	# 			target_action=nav2_node,
-	# 			on_stdout=lambda event: LogInfo(
-	# 				msg=f"Found: {event.text.decode()}"
-	# 			),
-	# 			on_stdout_regex=r"Nav2 initialized*",
-	# 			on_start=None
-	# 		)
-	# 	)
-				
-    # ])
-	
-	
 if __name__ == '__main__':
 	generate_launch_description()

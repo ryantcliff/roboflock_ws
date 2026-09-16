@@ -1,5 +1,14 @@
 rplidar:
   ros__parameters:
+<<<<<<< HEAD
     serial_port: /dev/rplidar
     serial_baudrate: 115200
     frame_id: lidar_link
+=======
+    serial_port: /dev/rplidar_usb
+    serial_baudrate: 115200
+    frame_id: lidar_link
+    scan_mode: 'Standard'
+    angle_compensate: true
+    topic_name: scan
+>>>>>>> upstream/dev

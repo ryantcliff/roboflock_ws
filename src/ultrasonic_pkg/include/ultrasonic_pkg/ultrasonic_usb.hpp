@@ -1,7 +1,11 @@
 #ifndef ULTRASONIC_USB_HPP
 #define ULTRASONIC_USB_HPP
 
+<<<<<<< HEAD
 #include <string>
+=======
+const char ARDUINO_PORT[] = "/dev/arduino_nano";
+>>>>>>> upstream/dev
 
 const uint8_t PACKETLEN = 8;
 const uint8_t START		= 0xCA;

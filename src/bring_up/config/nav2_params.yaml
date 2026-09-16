@@ -38,8 +38,8 @@ global_costmap:
 local_costmap:
   local_costmap:
     ros__parameters:
-      update_frequency: 5.0
-      publish_frequency: 2.0
+      update_frequency: 3.0
+      publish_frequency: 1.0
       global_frame: odom
       robot_base_frame: base_link
       use_sim_time: false
@@ -111,7 +111,7 @@ smoother_server:
 controller_server:
   ros__parameters:
     use_sim_time: false
-    controller_frequency: 20.0
+    controller_frequency: 10.0
     min_x_velocity_threshold: 0.001
     min_y_velocity_threshold: 0.5
     min_theta_velocity_threshold: 0.001
@@ -129,12 +129,32 @@ controller_server:
       yaw_goal_tolerance: 0.785
       stateful: true
     FollowPath:
+<<<<<<< HEAD
       plugin: "nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController"
       desired_linear_vel: 0.5
       lookahead_dist: 0.6
       min_lookahead_dist: 0.3
       max_lookahead_dist: 0.9
       lookahead_time: 1.5
+=======
+      plugin: "nav2_mppi_controller::MPPIController"
+      time_steps: 56
+      model_dt: 0.05
+      batch_size: 2000
+      vx_std: 0.2
+      vy_std: 0.2
+      wz_std: 0.4
+      vx_max: 0.5
+      vx_min: -0.35
+      vy_max: 0.5
+      vy_min: -0.5
+      wz_max: 1.9
+      wz_min: -1.9
+      base_link: base_link
+      map_frame: map
+      odom_frame: odom
+      odom_topic: /odometry/local
+>>>>>>> upstream/dev
       transform_tolerance: 0.1
       use_velocity_scaled_lookahead_dist: true
       min_approach_linear_velocity: 0.05
@@ -167,10 +187,12 @@ behavior_server:
 
 bt_navigator:
   ros__parameters:
+    default_nav_to_pose_bt_xml: "/opt/ros/humble/share/nav2_bt_navigator/behavior_trees/navigate_to_pose_w_replanning_and_recovery.xml"
+    default_nav_through_poses_bt_xml: "/opt/ros/humble/share/nav2_bt_navigator/behavior_trees/navigate_through_poses_w_replanning_and_recovery.xml"
     use_sim_time: false
     global_frame: map
     robot_base_frame: base_link
-    odom_topic: /odom
+    odom_topic: /odom/local
     bt_loop_duration: 10
     default_server_timeout: 20
     enable_groot_monitoring: true
@@ -205,7 +227,6 @@ bt_navigator:
     - nav2_round_robin_node_bt_node
     - nav2_transform_available_condition_bt_node
     - nav2_time_expired_condition_bt_node
-    - nav2_path_expiring_timer_condition_bt_node
     - nav2_distance_traveled_condition_bt_node
     - nav2_single_trigger_bt_node
     - nav2_goal_updated_controller_bt_node
@@ -230,6 +251,7 @@ waypoint_follower:
       plugin: "nav2_waypoint_follower::WaitAtWaypoint"
       enabled: true
       waypoint_pause_duration: 200
+<<<<<<< HEAD
 
 velocity_smoother:
   ros__parameters:
@@ -245,3 +267,5 @@ velocity_smoother:
     odom_duration: 0.1
     deadband_velocity: [0.0, 0.0, 0.0]
     velocity_timeout: 0.5
+=======
+>>>>>>> upstream/dev

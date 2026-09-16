@@ -1,7 +1,13 @@
 robot_gps:
   ros__parameters:
     frequency: 5.0
+<<<<<<< HEAD
     port: /dev/gps_robot
     baud: 9600
     frame_id: gps_link
+=======
+    port: /dev/ublox_gps
+    baud: 9600
+    frame_id: gps
+>>>>>>> upstream/dev
     useRMC: false  #false is GGA
