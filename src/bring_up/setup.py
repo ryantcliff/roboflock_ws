@@ -32,6 +32,7 @@ setup(
             'e_stop = bring_up.e_stop:main',
             'ps4_teleop = bring_up.ps4_teleop:main',
             'ultrasonic_estop = bring_up.ultrasonic_estop:main',
+            'gps_monitor = bring_up.gps_monitor:main',
         ],
     },
 )

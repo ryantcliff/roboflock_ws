@@ -2,7 +2,7 @@ from bring_up.e_stop import EStopLogic
 
 
 def make(**kwargs):
-    params = dict(stop_button=1, reset_button=9, joy_timeout=0.5)
+    params = {'stop_button': 1, 'reset_button': 9, 'joy_timeout': 0.5}
     params.update(kwargs)
     return EStopLogic(**params)
 

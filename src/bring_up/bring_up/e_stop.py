@@ -1,4 +1,5 @@
-"""Joystick e-stop: publishes a latched /e_stop flag for diff_drive_controller.
+"""
+Joystick e-stop: publishes a latched /e_stop flag for diff_drive_controller.
 
 Starts stopped. Press reset (Options) to arm; press stop (Cross) to stop.
 Losing /joy for joy_timeout seconds also stops. Every stop latches until reset.
@@ -16,6 +17,7 @@ E_STOP_QOS = QoSProfile(depth=1,
 
 
 class EStopLogic:
+
     def __init__(self, stop_button, reset_button, joy_timeout):
         self.stop_button = stop_button
         self.reset_button = reset_button
@@ -42,6 +44,7 @@ class EStopLogic:
 
 
 class EStop(Node):
+
     def __init__(self):
         super().__init__('e_stop')
         # Defaults match a PS4 controller under joy_node (hid-generic): Cross = 1, Options = 9.
@@ -80,9 +83,11 @@ def main(args=None):
     except KeyboardInterrupt:
         pass
     finally:
-        node.publisher.publish(Bool(data=True))
+        # Ctrl+C already shut the context down; the controller watchdog covers that.
+        if rclpy.ok():
+            node.publisher.publish(Bool(data=True))
         node.destroy_node()
-        rclpy.shutdown()
+        rclpy.try_shutdown()
 
 
 if __name__ == '__main__':

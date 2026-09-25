@@ -60,9 +60,19 @@ def main():
         imu_pub = node.create_publisher(Imu, '/imu/data', 10)
         gps_pub = node.create_publisher(NavSatFix, '/gps/robot/fix', 10)
         received = {'local': False, 'global': False, 'gps': False}
+        latest = {}
+        # Synthetic robot motion along +x (east): pose x and velocity vx.
+        motion = {'x': 0.0, 'vx': 0.0}
+        # A robot driving true east reads magnetic yaw -(declination - grid
+        # convergence); ekf_navsat_params.yaml sets declination 0.17872172 rad.
+        gps_lat, gps_lon = 42.9, -78.7
+        convergence = math.atan(math.tan(math.radians(gps_lon + 81.0))
+                                * math.sin(math.radians(gps_lat)))  # UTM zone 17
+        yaw = -(0.17872172 - convergence) if args.localization == 'gps' else 0.0
         def received_odom(kind, msg):
             if all(math.isfinite(v) for v in (msg.pose.pose.position.x, msg.pose.pose.position.y)):
                 received[kind] = True
+                latest[kind] = msg.pose.pose.position
         for kind, topic in [('local', '/odometry/local'), ('global', '/odometry/global'),
                             ('gps', '/odometry/gps')]:
             node.create_subscription(Odometry, topic,
@@ -105,6 +115,7 @@ def main():
             map_pub.publish(grid)
 
         def publish_sensors():
+            motion['x'] += motion['vx'] * 0.05
             stamp = node.get_clock().now().to_msg()
             if args.localization == 'synthetic':
                 dynamic_tf.sendTransform(transform('odom', 'base_link'))
@@ -112,7 +123,11 @@ def main():
             odom.header.stamp = stamp
             odom.header.frame_id = 'odom'
             odom.child_frame_id = 'base_link'
-            odom.pose.pose.orientation.w = 1.0
+            odom.pose.pose.position.x = motion['x'] * math.cos(yaw)
+            odom.pose.pose.position.y = motion['x'] * math.sin(yaw)
+            odom.pose.pose.orientation.z = math.sin(yaw / 2)
+            odom.pose.pose.orientation.w = math.cos(yaw / 2)
+            odom.twist.twist.linear.x = motion['vx']
             for i in range(6):
                 odom.pose.covariance[i * 7] = 0.01
                 odom.twist.covariance[i * 7] = 0.01
@@ -121,7 +136,8 @@ def main():
                 imu = Imu()
                 imu.header.stamp = stamp
                 imu.header.frame_id = 'base_link'
-                imu.orientation.w = 1.0
+                imu.orientation.z = math.sin(yaw / 2)
+                imu.orientation.w = math.cos(yaw / 2)
                 imu.linear_acceleration.z = 9.80665
                 for i in range(3):
                     imu.orientation_covariance[i * 4] = 0.01
@@ -146,7 +162,9 @@ def main():
             fix.header.frame_id = 'gps'
             fix.status.status = NavSatStatus.STATUS_FIX
             fix.status.service = NavSatStatus.SERVICE_GPS
-            fix.latitude, fix.longitude, fix.altitude = 42.9, -78.7, 150.0
+            # The robot drives true east, so distance maps to longitude.
+            east_deg = math.degrees(motion['x'] / (6388838.29 * math.cos(math.radians(gps_lat))))
+            fix.latitude, fix.longitude, fix.altitude = gps_lat, gps_lon + east_deg, 150.0
             fix.position_covariance = [0.25, 0.0, 0.0, 0.0, 0.25, 0.0, 0.0, 0.0, 1.0]
             fix.position_covariance_type = NavSatFix.COVARIANCE_TYPE_DIAGONAL_KNOWN
             gps_pub.publish(fix)
@@ -242,6 +260,29 @@ def main():
         if publishers != expected_publishers:
             raise AssertionError(f'Unexpected dynamic TF publishers: {publishers}')
         print(f'PASS TF chain and expected dynamic publishers: {publishers}')
+        if args.localization == 'gps':
+            # Drive 10 m east at 1 m/s; GPS and laser odometry move together.
+            start = {k: (latest[k].x, latest[k].y) for k in ('global', 'gps')}
+            motion['vx'] = 1.0
+            walk_end = time.monotonic() + 10.0
+            while time.monotonic() < walk_end:
+                rclpy.spin_once(node, timeout_sec=0.05)
+            motion['vx'] = 0.0
+            settle_end = time.monotonic() + 3.0
+            while time.monotonic() < settle_end:
+                rclpy.spin_once(node, timeout_sec=0.05)
+            moved = {k: (latest[k].x - start[k][0], latest[k].y - start[k][1])
+                     for k in ('global', 'gps')}
+            for kind, (dx, dy) in moved.items():
+                if abs(math.hypot(dx, dy) - motion['x']) > 0.5:
+                    raise AssertionError(f'/odometry/{kind} moved {math.hypot(dx, dy):.2f} m; '
+                                         f'expected {motion["x"]:.2f} m')
+            gap = math.hypot(moved['global'][0] - moved['gps'][0],
+                             moved['global'][1] - moved['gps'][1])
+            if gap > 0.2:
+                raise AssertionError(f'/odometry/global is {gap:.2f} m from /odometry/gps')
+            print(f'PASS GPS walk: global moved {math.hypot(*moved["global"]):.2f} m, '
+                  f'gps {math.hypot(*moved["gps"]):.2f} m, gap {gap:.2f} m', flush=True)
         print(f'PASS hardware-free Nav2 activation and planning ({args.localization}). Log: {args.log}')
     finally:
         for child in (process, localization_process):
