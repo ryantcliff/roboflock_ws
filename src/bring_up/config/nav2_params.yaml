@@ -134,7 +134,7 @@ controller_server:
       # Regulated Pure Pursuit: much lighter than MPPI on the Orin Nano CPU and
       # enough for following a path in open ground.
       plugin: "nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController"
-      desired_linear_vel: 0.5
+      desired_linear_vel: 1.2  # walking pace, to keep up with the beacon carrier
       lookahead_dist: 0.8
       min_lookahead_dist: 0.4
       max_lookahead_dist: 1.5
@@ -149,7 +149,7 @@ controller_server:
       regulated_linear_scaling_min_radius: 0.9
       regulated_linear_scaling_min_speed: 0.25
       use_cost_regulated_linear_velocity_scaling: false
-      approach_velocity_scaling_dist: 0.6
+      approach_velocity_scaling_dist: 1.5  # slow down before the standoff point
       min_approach_linear_velocity: 0.05
       use_collision_detection: true
       max_allowed_time_to_collision_up_to_carrot: 1.0
@@ -256,10 +256,10 @@ velocity_smoother:
     smoothing_frequency: 20.0
     scale_velocities: false
     feedback: "OPEN_LOOP"
-    max_velocity: [0.5, 0.0, 1.9]
+    max_velocity: [1.2, 0.0, 1.9]  # must be >= desired_linear_vel
     min_velocity: [-0.35, 0.0, -1.9]
     max_accel: [0.5, 0.0, 1.0]
-    max_decel: [-0.5, 0.0, -1.0]
+    max_decel: [-1.5, 0.0, -1.0]  # stop from 1.2 m/s in ~0.5 m; ODrives brake hard (FAST_DECEL)
     odom_topic: /odometry/local
     odom_duration: 0.1
     deadband_velocity: [0.0, 0.0, 0.0]

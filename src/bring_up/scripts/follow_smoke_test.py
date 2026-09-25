@@ -24,6 +24,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--domain-id', type=int, default=88)
     parser.add_argument('--log', default='/tmp/roboflock-follow-smoke.log')
+    parser.add_argument('--beacon-speed', type=float, default=0.4,
+                        help='Walking speed of the simulated beacon (m/s)')
     args = parser.parse_args()
     if not 0 <= args.domain_id <= 101:
         parser.error('domain-id must be between 0 and 101')
@@ -72,8 +74,9 @@ def main():
             spin(0.5)
         raise AssertionError(f'Robot did not settle: distance {distance():.2f} m; see {args.log}')
 
-    def walk(dx, dy, speed=0.4, stop_after=None):
+    def walk(dx, dy, speed=None, stop_after=None):
         """Move the beacon; stop publishing fixes after stop_after seconds."""
+        speed = speed or args.beacon_speed
         steps = int(math.hypot(dx, dy) / speed / 0.2)
         for i in range(steps):
             if stop_after is not None and i * 0.2 >= stop_after:
@@ -131,7 +134,9 @@ def main():
               f'stopped {d:.2f} m away', flush=True)
 
         walk(0.0, 10.0, stop_after=6.0)  # fixes stop 6 s into the walk
-        drift = moved_during(5.0)  # after the walk: >= 19 s since the last fix
+        # Stale after 3 s, then braking from up to 1.2 m/s at 1.5 m/s^2 (~1 s).
+        spin(4.0)
+        drift = moved_during(5.0)
         if drift > 0.1:
             raise AssertionError(f'Robot still moving {drift:.2f} m/5 s after beacon loss')
         print(f'PASS C: halted after beacon fixes stopped (moved {drift:.2f} m in 5 s)',
