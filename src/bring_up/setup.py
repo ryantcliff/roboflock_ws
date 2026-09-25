@@ -19,8 +19,8 @@ setup(
     zip_safe=True,
     maintainer='roboflock',
     maintainer_email='adityasc16@gmail.com',
-    description='TODO: Package description',
-    license='TODO: License declaration',
+    description='Top-level orchestration: launch files and configs that bring up the full Roboflock autonomy stack',
+    license='Apache-2.0',
     extras_require={
         'test': [
             'pytest',
@@ -31,6 +31,7 @@ setup(
             'diff_drive_controller = bring_up.diff_drive_controller:main',
             'e_stop = bring_up.e_stop:main',
             'ps4_teleop = bring_up.ps4_teleop:main',
+            'ultrasonic_estop = bring_up.ultrasonic_estop:main',
         ],
     },
 )

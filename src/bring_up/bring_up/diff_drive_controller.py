@@ -20,6 +20,10 @@ SERIAL_NUMBERS = {
 }
 
 E_STOP_TIMEOUT = 0.5     # seconds without /e_stop before stopping
+CMD_VEL_TIMEOUT = 0.5    # seconds without /cmd_vel before commanding zero
+
+FAST_DECEL = 50.0
+STD_ACCEL  = 10.0
 
 
 class DiffDriveController(Node):
@@ -28,10 +32,14 @@ class DiffDriveController(Node):
         self.drives = {}
         self.stopped = True
         self._last_e_stop = None
+        self._last_cmd_vel = None
+        self._moving = False
         self._connect()
         self.create_subscription(Bool, 'e_stop', self._e_stop_cb, E_STOP_QOS)
         self.create_timer(0.1, self._watchdog)
-        self.create_subscription(Twist, 'cmd_vel', self._cmd_vel_cb, 10)
+        # bringup.launch.py sets this to twist_mux's output; bring_up.sh keeps cmd_vel.
+        cmd_vel_topic = self.declare_parameter('cmd_vel_topic', 'cmd_vel').value
+        self.create_subscription(Twist, cmd_vel_topic, self._cmd_vel_cb, 10)
         self.get_logger().info(
             'Diff drive controller ready, idle until /e_stop is released')
 
@@ -42,7 +50,9 @@ class DiffDriveController(Node):
             dev = odrive.find_sync(serial_number=serial)
             dev.clear_errors()
             dev.axis0.controller.config.input_mode = InputMode.VEL_RAMP
-            dev.axis0.controller.config.vel_ramp_rate = 10.0
+            dev.axis0.controller.config.vel_ramp_rate = STD_ACCEL
+            dev.axis0.controller.config.vel_gain = 0.02          # default ~0.16, lower = less resistance
+            dev.axis0.controller.config.vel_integrator_gain = 0.05
             self.drives[name] = dev
             self.get_logger().info(f'{name} connected')
 
@@ -50,9 +60,24 @@ class DiffDriveController(Node):
         return self.get_clock().now().nanoseconds * 1e-9
 
     def _stop_motors(self):
+        self._moving = False
         for dev in self.drives.values():
             dev.axis0.controller.input_vel = 0.0
             dev.axis0.requested_state = AxisState.IDLE
+
+    def _set_velocity(self, name: str, target_vel: float):
+        dev = self.drives[name]
+        current_vel = dev.axis0.encoder.vel_estimate
+
+        slowing_down = abs(target_vel) < abs(current_vel)
+        changing_dir = target_vel * current_vel < 0
+
+        if slowing_down or changing_dir:
+            dev.axis0.controller.config.vel_ramp_rate = FAST_DECEL
+        else:
+            dev.axis0.controller.config.vel_ramp_rate = STD_ACCEL
+
+        dev.axis0.controller.input_vel = target_vel
 
     def _set_stopped(self, stopped):
         if stopped == self.stopped:
@@ -75,50 +100,34 @@ class DiffDriveController(Node):
     def _watchdog(self):
         if self._last_e_stop is None or self._now() - self._last_e_stop > E_STOP_TIMEOUT:
             self._set_stopped(True)
+        elif self._moving and self._now() - self._last_cmd_vel > CMD_VEL_TIMEOUT:
+            # Stale command: hold zero velocity but stay armed.
+            self.get_logger().warn('No /cmd_vel for 0.5 s: commanding zero')
+            for name in self.drives:
+                self._set_velocity(name, 0.0)
+            self._moving = False
 
     def _cmd_vel_cb(self, msg: Twist):
         if self.stopped:
             return
+        self._last_cmd_vel = self._now()
         v = msg.linear.x
         w = msg.angular.z
-        print("Received cmd_vel:")
-        print("linear velocity (v): ", v)
-        print("angular velocity (w): ", w)
-        #testing 
-    
-        # Diff drive kinematics: v_left/right in m/s
-        #try finding the rpm and then convert it to m/s ? 
+        self._moving = v != 0.0 or w != 0.0
+        print(f"cmd_vel → linear: {v}, angular: {w}")
+
         v_left  = v - (w * WHEEL_SEPARATION / 2.0)
         v_right = v + (w * WHEEL_SEPARATION / 2.0)
-        print("printing v_left and v_right in m/s for debugging")
-        print("v_left: ", v_left)
-        print("v_right: ", v_right)
+        print(f"v_left: {v_left} m/s, v_right: {v_right} m/s")
 
-
-        
-
-        # Convert m/s -> motor turns/sec (accounting for gear ratio)
         turns_left  = (v_left  / (2.0 * math.pi * WHEEL_RADIUS)) * GEAR_RATIO
         turns_right = (v_right / (2.0 * math.pi * WHEEL_RADIUS)) * GEAR_RATIO
 
-        # damp right wheels when turning right ( pivot turn) , and left wheels when turning left
-        if w < 0 : # turning right
-            turns_right = turns_right * 0.0
-            turns_left = turns_left * 1.5
-            print("dampening right wheels")
-            
-        #else turn left
-        if w > 0 : # turning left
-                turns_left = turns_left * 0.0
-                turns_right = turns_right * 1.5
-                print("dampening left wheels")
-
-
         # Left wheels are negated to match physical mounting orientation
-        self.drives["FL"].axis0.controller.input_vel =  turns_left
-        self.drives["RL"].axis0.controller.input_vel =  turns_left
-        self.drives["FR"].axis0.controller.input_vel = -turns_right
-        self.drives["RR"].axis0.controller.input_vel = -turns_right
+        self._set_velocity("FL",  turns_left)
+        self._set_velocity("RL",  turns_left)
+        self._set_velocity("FR", -turns_right)
+        self._set_velocity("RR", -turns_right)
 
     def destroy_node(self):
         self.get_logger().info('Shutting down — stopping and idling motors')
