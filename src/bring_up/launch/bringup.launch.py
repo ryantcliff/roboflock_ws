@@ -104,12 +104,18 @@ def follow_nodes(context):
         return []
     twist_mux_params = PathJoinSubstitution([
         FindPackageShare('bring_up'), 'config', 'twist_mux.yaml'])
+    initial_mode = 'follow' if enabled(context, 'follow_enabled') else 'idle'
     nodes = [
+        # Beacon and home station both go through beacon_goalpose (/fromLL, 20 m
+        # clamp); mission_manager relays the active one to Nav2's /goal_update.
         Node(package='beacon_pkg', executable='beacon_goalpose', name='beacon_goalpose',
-             output='screen'),
-        Node(package='bring_up', executable='follow_manager', name='follow_manager',
-             output='screen', parameters=[{'enabled': ParameterValue(
-                 LaunchConfiguration('follow_enabled'), value_type=bool)}]),
+             output='screen', remappings=[('/goal_update', '/beacon/goal')]),
+        Node(package='beacon_pkg', executable='beacon_goalpose', name='home_goalpose',
+             output='screen', remappings=[('/gps/beacon/fix', '/home/fix'),
+                                          ('/beacon/map_pose', '/home/map_pose'),
+                                          ('/goal_update', '/home/goal')]),
+        Node(package='bring_up', executable='mission_manager', name='mission_manager',
+             output='screen', parameters=[{'initial_mode': initial_mode}]),
         Node(package='twist_mux', executable='twist_mux', name='twist_mux', output='screen',
              parameters=[twist_mux_params], remappings=[('cmd_vel_out', 'cmd_vel_mux')]),
     ]
@@ -126,6 +132,14 @@ def follow_nodes(context):
                  name='diff_drive_controller', output='screen',
                  parameters=[{'cmd_vel_topic': 'cmd_vel_mux'}]),
         ]
+        if enabled(context, 'station'):
+            nodes.append(Node(
+                package='bring_up', executable='meshtastic_bridge', name='meshtastic_bridge',
+                output='screen', parameters=[{
+                    'port': LaunchConfiguration('meshtastic_port'),
+                    'home_node_id': ParameterValue(
+                        LaunchConfiguration('home_node_id'), value_type=str),
+                }]))
     return nodes
 
 
@@ -148,7 +162,14 @@ def generate_launch_description():
         DeclareLaunchArgument('fake_beacon', default_value='true', choices=['true', 'false'],
                               description='With sim and follow: walk a fake beacon'),
         DeclareLaunchArgument('follow_enabled', default_value='true', choices=['true', 'false'],
-                              description='Start following at launch; toggle with /follow/enable'),
+                              description='Start in follow mode (else idle); change with '
+                                          '/station/command follow|home|stop'),
+        DeclareLaunchArgument('station', default_value='false', choices=['true', 'false'],
+                              description='With hardware: Meshtastic bridge to the home station'),
+        DeclareLaunchArgument('meshtastic_port', default_value='/dev/meshtastic',
+                              description='Serial device of the robot Meshtastic node'),
+        DeclareLaunchArgument('home_node_id', default_value='0',
+                              description='Meshtastic node number or !hex id of the home station'),
         GroupAction(condition=IfCondition(LaunchConfiguration('hardware')), actions=[
             include('bring_up', 'robot_state_publisher.launch.py'),
             include('beacon_pkg', 'beacon_receiver.launch.py'),

@@ -1,14 +1,19 @@
 #!/usr/bin/env python3
 """
-Hardware-free beacon-following test on the full follow stack.
+Hardware-free beacon-following and return-home test on the full stack.
 
 Launches bringup.launch.py with follow:=true sim:=true (real EKFs,
-navsat_transform, Nav2, beacon_goalpose, follow_manager and twist_mux; fake
-robot and sensors) and plays the beacon itself:
+navsat_transform, Nav2, beacon_goalpose/home_goalpose, mission_manager and
+twist_mux; fake robot and sensors). It plays the beacon, the home station's
+/home/fix (as meshtastic_bridge publishes it) and the station's commands:
   A. beacon stands 6 m ahead: robot approaches and stops near the 3 m standoff
   B. beacon walks 12 m east and stops: robot follows and stops near 3 m again
   C. beacon walks north, then its fixes stop: robot halts within a few seconds
   D. fixes resume farther away: robot starts following again
+  E. "home": robot drives to the home station and stops near 1.5 m
+  F. home station moves 10 m: robot follows it
+  G. "stop": robot halts and reports mode=idle on "status"
+  H. "follow": robot returns to the beacon
 Uses an isolated ROS domain (88 by default) and refuses an occupied one.
 """
 
@@ -36,6 +41,7 @@ def main():
     import rclpy
     from geometry_msgs.msg import PoseStamped
     from sensor_msgs.msg import NavSatFix, NavSatStatus
+    from std_msgs.msg import String
 
     from bring_up.sim_geo import LocalTangent
 
@@ -44,6 +50,8 @@ def main():
     tangent = LocalTangent(43.0008, -78.7890)  # fake_robot's default datum
     robot = {}
     beacon = {'x': 6.0, 'y': 0.0, 'on': True}
+    home = {'x': -4.0, 'y': 6.0, 'on': False}
+    statuses = []
     launch = None
     log = open(args.log, 'w')
 
@@ -54,8 +62,8 @@ def main():
                 raise RuntimeError(f'Launch exited; see {args.log}')
             rclpy.spin_once(node, timeout_sec=0.05)
 
-    def distance():
-        return math.hypot(robot['x'] - beacon['x'], robot['y'] - beacon['y'])
+    def distance(target=beacon):
+        return math.hypot(robot['x'] - target['x'], robot['y'] - target['y'])
 
     def position():
         return robot['x'], robot['y']
@@ -65,14 +73,19 @@ def main():
         spin(seconds)
         return math.hypot(robot['x'] - start[0], robot['y'] - start[1])
 
-    def settle(timeout, low=2.4, high=4.0):
-        """Wait until the robot rests within [low, high] m of the beacon."""
+    def settle(timeout, low=2.4, high=4.0, target=beacon):
+        """Wait until the robot rests within [low, high] m of the target."""
         end = time.monotonic() + timeout
         while time.monotonic() < end:
-            if low <= distance() <= high and moved_during(3.0) < 0.1:
-                return distance()
+            if low <= distance(target) <= high and moved_during(3.0) < 0.1:
+                return distance(target)
             spin(0.5)
-        raise AssertionError(f'Robot did not settle: distance {distance():.2f} m; see {args.log}')
+        raise AssertionError(
+            f'Robot did not settle: distance {distance(target):.2f} m; see {args.log}')
+
+    def command(word):
+        command_pub.publish(String(data=word))
+        spin(0.5)
 
     def walk(dx, dy, speed=None, stop_after=None):
         """Move the beacon; stop publishing fixes after stop_after seconds."""
@@ -98,6 +111,18 @@ def main():
         fix.position_covariance_type = NavSatFix.COVARIANCE_TYPE_DIAGONAL_KNOWN
         beacon_pub.publish(fix)
 
+    def publish_home():
+        # meshtastic_bridge republishes the last station position at 1 Hz.
+        if not home['on']:
+            return
+        fix = NavSatFix()
+        fix.header.stamp = node.get_clock().now().to_msg()
+        fix.header.frame_id = 'gps'
+        fix.status.status = NavSatStatus.STATUS_FIX
+        fix.latitude, fix.longitude = tangent.to_latlon(home['x'], home['y'])
+        fix.altitude = 180.0
+        home_pub.publish(fix)
+
     def truth(msg):
         robot['x'], robot['y'] = msg.pose.position.x, msg.pose.position.y
 
@@ -109,6 +134,10 @@ def main():
         beacon_pub = node.create_publisher(NavSatFix, '/gps/beacon/fix', 10)
         node.create_subscription(PoseStamped, '/sim/pose', truth, 10)
         node.create_timer(0.2, publish_beacon)
+        home_pub = node.create_publisher(NavSatFix, '/home/fix', 10)
+        node.create_timer(1.0, publish_home)
+        command_pub = node.create_publisher(String, '/station/command', 10)
+        node.create_subscription(String, '/robot/status', lambda m: statuses.append(m.data), 10)
         launch = subprocess.Popen([
             'ros2', 'launch', 'bring_up', 'bringup.launch.py', 'follow:=true', 'slam:=false',
             'hardware:=false', 'sim:=true', 'fake_beacon:=false',
@@ -126,7 +155,9 @@ def main():
         start = position()
         walk(12.0, 0.0)
         travelled = math.hypot(robot['x'] - start[0], robot['y'] - start[1])
-        if travelled < 8.0:
+        # At walking pace the robot lags (0.5 m/s^2 acceleration, matching the
+        # ODrive velocity ramp) and catches up once the beacon stops.
+        if travelled < 6.0:
             raise AssertionError(
                 f'Robot moved only {travelled:.2f} m while the beacon walked 12 m')
         d = settle(60.0)
@@ -150,7 +181,36 @@ def main():
             raise AssertionError(f'Robot moved only {resumed:.2f} m after fixes resumed')
         print(f'PASS D: resumed following when fixes returned (moved {resumed:.1f} m)',
               flush=True)
-        print(f'PASS hardware-free beacon following. Log: {args.log}', flush=True)
+
+        home['on'] = True
+        command('home')
+        d = settle(90.0, 0.8, 2.6, home)
+        print(f'PASS E: drove home and stopped {d:.2f} m from the station', flush=True)
+
+        home['y'] += 10.0  # station relocated
+        d = settle(60.0, 0.8, 2.6, home)
+        print(f'PASS F: followed the relocated station, stopped {d:.2f} m away', flush=True)
+
+        home['y'] += 10.0
+        spin(2.0)  # let the robot start moving toward the new spot
+        command('stop')
+        spin(3.0)
+        drift = moved_during(4.0)
+        if drift > 0.1:
+            raise AssertionError(f'Robot still moving {drift:.2f} m/4 s after stop')
+        statuses.clear()
+        command('status')
+        spin(1.0)
+        if not any(s.startswith('mode=idle') for s in statuses):
+            raise AssertionError(f'Expected mode=idle status, got {statuses}')
+        print(f'PASS G: stopped on command (moved {drift:.2f} m in 4 s); status "{statuses[-1]}"',
+              flush=True)
+
+        command('follow')
+        d = settle(90.0)
+        print(f'PASS H: back to following, stopped {d:.2f} m from the beacon', flush=True)
+        print(f'PASS hardware-free beacon following and return home. Log: {args.log}',
+              flush=True)
     finally:
         if launch is not None and launch.poll() is None:
             launch.send_signal(signal.SIGINT)
