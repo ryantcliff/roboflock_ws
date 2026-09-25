@@ -29,6 +29,8 @@ setup(
     entry_points={
         'console_scripts': [
             'diff_drive_controller = bring_up.diff_drive_controller:main',
+            'e_stop = bring_up.e_stop:main',
+            'ps4_teleop = bring_up.ps4_teleop:main',
         ],
     },
 )

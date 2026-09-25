@@ -18,6 +18,8 @@
   <exec_depend>nav_msgs</exec_depend>
   <exec_depend>sensor_msgs</exec_depend>
   <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>joy</exec_depend>
   <exec_depend>tf2_ros</exec_depend>
   <test_depend>tf2_msgs</test_depend>
   <test_depend>nav2_msgs</test_depend>

@@ -1,6 +1,8 @@
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
+from std_msgs.msg import Bool
+from bring_up.e_stop import E_STOP_QOS
 import odrive
 from odrive.enums import AxisState, InputMode, ControlMode
 import math
@@ -17,27 +19,66 @@ SERIAL_NUMBERS = {
     "RL": "336536573334",
 }
 
+E_STOP_TIMEOUT = 0.5     # seconds without /e_stop before stopping
+
 
 class DiffDriveController(Node):
     def __init__(self):
         super().__init__('diff_drive_controller')
         self.drives = {}
-        self._connect_and_enable()
+        self.stopped = True
+        self._last_e_stop = None
+        self._connect()
+        self.create_subscription(Bool, 'e_stop', self._e_stop_cb, E_STOP_QOS)
+        self.create_timer(0.1, self._watchdog)
         self.create_subscription(Twist, 'cmd_vel', self._cmd_vel_cb, 10)
-        self.get_logger().info('Diff drive controller ready, listening on /cmd_vel')
+        self.get_logger().info(
+            'Diff drive controller ready, idle until /e_stop is released')
 
-    def _connect_and_enable(self):
+    def _connect(self):
+        # Axes stay idle until the e-stop is released.
         for name, serial in SERIAL_NUMBERS.items():
             self.get_logger().info(f'Connecting to {name} ({serial})...')
             dev = odrive.find_sync(serial_number=serial)
             dev.clear_errors()
             dev.axis0.controller.config.input_mode = InputMode.VEL_RAMP
             dev.axis0.controller.config.vel_ramp_rate = 10.0
-            dev.axis0.requested_state = AxisState.CLOSED_LOOP_CONTROL
             self.drives[name] = dev
-            self.get_logger().info(f'{name} connected and enabled')
+            self.get_logger().info(f'{name} connected')
+
+    def _now(self):
+        return self.get_clock().now().nanoseconds * 1e-9
+
+    def _stop_motors(self):
+        for dev in self.drives.values():
+            dev.axis0.controller.input_vel = 0.0
+            dev.axis0.requested_state = AxisState.IDLE
+
+    def _set_stopped(self, stopped):
+        if stopped == self.stopped:
+            return
+        self.stopped = stopped
+        if stopped:
+            self._stop_motors()
+            self.get_logger().warn('E-stop: motors idled')
+        else:
+            for dev in self.drives.values():
+                dev.clear_errors()
+                dev.axis0.controller.input_vel = 0.0
+                dev.axis0.requested_state = AxisState.CLOSED_LOOP_CONTROL
+            self.get_logger().info('E-stop released: motors enabled')
+
+    def _e_stop_cb(self, msg: Bool):
+        self._last_e_stop = self._now()
+        self._set_stopped(msg.data)
+
+    def _watchdog(self):
+        if self._last_e_stop is None or self._now() - self._last_e_stop > E_STOP_TIMEOUT:
+            self._set_stopped(True)
 
     def _cmd_vel_cb(self, msg: Twist):
+        if self.stopped:
+            return
         v = msg.linear.x
         w = msg.angular.z
         print("Received cmd_vel:")
@@ -81,9 +122,7 @@ class DiffDriveController(Node):
 
     def destroy_node(self):
         self.get_logger().info('Shutting down — stopping and idling motors')
-        for dev in self.drives.values():
-            dev.axis0.controller.input_vel = 0.0
-            dev.axis0.requested_state = AxisState.IDLE
+        self._stop_motors()
         super().destroy_node()
 
 
