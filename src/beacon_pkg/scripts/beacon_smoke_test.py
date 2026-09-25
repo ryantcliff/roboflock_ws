@@ -60,7 +60,15 @@ def main():
                 os.killpg(child.pid, signal.SIGKILL)
                 child.wait()
 
-    def fix(lat=0.0, lon=0.0):
+    # Real, non-degenerate datum (UB North Campus). lat/lon 0,0 makes
+    # navsat_transform abort inside GeographicLib ("MGRS string too short").
+    datum_lat, datum_lon = 43.0008, -78.7890
+    a, e2 = 6378137.0, 6.69437999014e-3
+    s2 = math.sin(math.radians(datum_lat)) ** 2
+    prime_vertical = a / math.sqrt(1 - e2 * s2)
+    meridian = a * (1 - e2) / (1 - e2 * s2) ** 1.5
+
+    def fix(lat=datum_lat, lon=datum_lon):
         msg = NavSatFix()
         msg.header.stamp = node.get_clock().now().to_msg()
         # Coincident test sensor: no guessed real-world antenna offset.
@@ -108,7 +116,7 @@ def main():
 
         timer = node.create_timer(0.05, sensors)
         navsat = start(['ros2', 'run', 'robot_localization', 'navsat_transform_node',
-                        '--ros-args', '-p', 'use_local_cartesian:=true',
+                        '--ros-args',  # UTM mode, as in ekf_navsat_params.yaml
                         '-p', 'magnetic_declination_radians:=0.0', '-p', 'yaw_offset:=0.0',
                         '-p', 'delay:=0.0', '-p', 'zero_altitude:=true'])
         until(lambda: len(gps_output) > 2)
@@ -126,9 +134,11 @@ def main():
             spin(0.1)
 
         check_position(fix(), 0, 0)
-        # Independent WGS84 small-offset expectations at the equator.
-        check_position(fix(lon=math.degrees(10 / 6378137.0)), 10, 0)
-        check_position(fix(lat=math.degrees(10 / 6335439.327)), 0, 10)
+        # Independent WGS84 small-offset expectations at the datum latitude.
+        east = math.degrees(10 / (prime_vertical * math.cos(math.radians(datum_lat))))
+        north = math.degrees(10 / meridian)
+        check_position(fix(lon=datum_lon + east), 10, 0)
+        check_position(fix(lat=datum_lat + north), 0, 10)
         print('PASS same location, 10 m east, 10 m north and original timestamps', flush=True)
 
         invalid = []
