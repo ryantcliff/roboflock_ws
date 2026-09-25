@@ -14,6 +14,7 @@ setup(
         ('share/' + package_name, ['package.xml']),
         (os.path.join('share', package_name, 'launch'), glob('launch/*.py')),
         (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
+        (os.path.join('share', package_name, 'behavior_trees'), glob('behavior_trees/*.xml')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -33,6 +34,7 @@ setup(
             'ps4_teleop = bring_up.ps4_teleop:main',
             'ultrasonic_estop = bring_up.ultrasonic_estop:main',
             'gps_monitor = bring_up.gps_monitor:main',
+            'follow_manager = bring_up.follow_manager:main',
         ],
     },
 )

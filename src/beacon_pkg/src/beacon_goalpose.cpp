@@ -11,23 +11,29 @@
 #include <robot_localization/srv/from_ll.hpp>
 #include <sensor_msgs/msg/nav_sat_fix.hpp>
 
-// Converts a beacon measurement using the robot's GPS datum. This node only
-// reports positions; it does not send navigation goals or velocity commands.
+// Converts a beacon measurement using the robot's GPS datum. Publishes the
+// beacon position on /beacon/map_pose and a follow target on /goal_update,
+// which Nav2's GoalUpdater reads while follow_manager's follow goal runs.
+// It never sends velocity commands.
 class BeaconGoalPose : public rclcpp::Node
 {
 public:
   BeaconGoalPose() : Node("beacon_goalpose")
   {
     max_age_ = declare_parameter("max_fix_age", 2.0);
+    // Keep follow targets inside the 50 m rolling global costmap.
+    max_goal_distance_ = declare_parameter("max_goal_distance", 20.0);
     request_timeout_ = declare_parameter("request_timeout", 1.0);
     map_frame_ = declare_parameter<std::string>("map_frame", "map");
     if (!std::isfinite(max_age_) || max_age_ <= 0.0 ||
-      !std::isfinite(request_timeout_) || request_timeout_ <= 0.0 || map_frame_.empty())
+      !std::isfinite(request_timeout_) || request_timeout_ <= 0.0 || map_frame_.empty() ||
+      !std::isfinite(max_goal_distance_) || max_goal_distance_ <= 0.0)
     {
       throw std::invalid_argument("Timeouts must be positive and finite; map_frame must be set");
     }
     converter_ = create_client<FromLL>("/fromLL");
     publisher_ = create_publisher<geometry_msgs::msg::PoseStamped>("/beacon/map_pose", 10);
+    goal_publisher_ = create_publisher<geometry_msgs::msg::PoseStamped>("/goal_update", 10);
     // A service can exist before navsat_transform has established its datum.
     // Fresh GPS odometry in the expected frame is the readiness signal.
     gps_subscription_ = create_subscription<nav_msgs::msg::Odometry>(
@@ -109,13 +115,31 @@ private:
           pose.pose.position.z = 0.0;  // Planar navigation; this is a position, not a heading.
           pose.pose.orientation.w = 1.0;
           publisher_->publish(pose);
+          goal_publisher_->publish(clamp_to_robot(pose));
         } catch (const std::exception & error) {
           RCLCPP_WARN(get_logger(), "GPS conversion failed: %s", error.what());
         }
       }).request_id;
   }
 
+  // Pulls a far target in along the robot->beacon line; the robot's GPS
+  // position in the map frame comes from navsat's /odometry/gps.
+  geometry_msgs::msg::PoseStamped clamp_to_robot(geometry_msgs::msg::PoseStamped pose) const
+  {
+    const auto & robot = gps_odometry_->pose.pose.position;
+    const double dx = pose.pose.position.x - robot.x;
+    const double dy = pose.pose.position.y - robot.y;
+    const double distance = std::hypot(dx, dy);
+    if (distance > max_goal_distance_) {
+      const double scale = max_goal_distance_ / distance;
+      pose.pose.position.x = robot.x + dx * scale;
+      pose.pose.position.y = robot.y + dy * scale;
+    }
+    return pose;
+  }
+
   double max_age_;
+  double max_goal_distance_;
   double request_timeout_;
   std::string map_frame_;
   uint64_t generation_{0};
@@ -129,6 +153,7 @@ private:
   rclcpp::Subscription<sensor_msgs::msg::NavSatFix>::SharedPtr subscription_;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr gps_subscription_;
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr publisher_;
+  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr goal_publisher_;
   rclcpp::TimerBase::SharedPtr timer_;
 };
 

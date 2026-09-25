@@ -1,8 +1,11 @@
 twist_mux:
   ros__parameters:
+    # Output is remapped to /cmd_vel_mux in bringup.launch.py; diff_drive_controller
+    # subscribes there in follow mode.
     topics:
       navigation:
-        topic: /cmd_vel_nav
+        # Nav2's velocity_smoother output (navigation_launch.py remaps it to /cmd_vel).
+        topic: /cmd_vel
         timeout: 0.5
         priority: 10
       joystick:

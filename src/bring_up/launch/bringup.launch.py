@@ -1,4 +1,4 @@
-"""Bring up hardware, mapping (or a saved map), and navigation separately."""
+"""Bring up hardware, mapping (or a saved map), navigation and, optionally, beacon following."""
 
 import os
 
@@ -12,6 +12,7 @@ from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, Pyth
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
+from nav2_common.launch import RewrittenYaml
 
 
 def include(package, filename, arguments=None):
@@ -22,16 +23,22 @@ def include(package, filename, arguments=None):
     )
 
 
+def enabled(context, name):
+    return LaunchConfiguration(name).perform(context).lower() == 'true'
+
+
 def map_source(context):
     # Evaluate only the selected branch, so navigation-only debugging does not
     # require SLAM or a saved map installed/configured.
-    if LaunchConfiguration('enable_mapping').perform(context).lower() != 'true':
+    if not enabled(context, 'enable_mapping'):
         return []
     if LaunchConfiguration('slam').perform(context).lower() == 'true':
         return [include('bring_up', 'slam.launch.py', {
             'use_sim_time': LaunchConfiguration('use_sim_time'),
         })]
     map_file = LaunchConfiguration('map').perform(context)
+    if enabled(context, 'follow') and not map_file:
+        return []  # Outdoor following plans on the live lidar costmap only.
     if not os.path.isfile(map_file):
         raise RuntimeError('slam:=false requires map:=/absolute/path/to/map.yaml')
     clock = ParameterValue(LaunchConfiguration('use_sim_time'), value_type=bool)
@@ -49,6 +56,57 @@ def map_source(context):
     ]
 
 
+def navigation(context):
+    params_file = LaunchConfiguration('params_file')
+    if enabled(context, 'follow'):
+        if enabled(context, 'slam'):
+            raise RuntimeError(
+                'follow:=true requires slam:=false: beacon goals need the GPS-aligned map frame')
+        params_file = RewrittenYaml(
+            source_file=params_file, convert_types=True, param_rewrites={
+                # No prior map outdoors: plan on the rolling lidar costmap.
+                'global_costmap.global_costmap.ros__parameters.static_layer.enabled': 'False',
+                # The truncated follow path ends in an arbitrary heading; do not
+                # turn in place to match it.
+                'controller_server.ros__parameters.goal_checker.yaw_goal_tolerance': '3.14',
+            })
+    return [include('bring_up', 'nav2.launch.py', {
+        'autostart': LaunchConfiguration('autostart'),
+        'use_sim_time': LaunchConfiguration('use_sim_time'),
+        'params_file': params_file,
+    })]
+
+
+def follow_nodes(context):
+    if not enabled(context, 'follow'):
+        return []
+    twist_mux_params = PathJoinSubstitution([
+        FindPackageShare('bring_up'), 'config', 'twist_mux.yaml'])
+    nodes = [
+        Node(package='beacon_pkg', executable='beacon_goalpose', name='beacon_goalpose',
+             output='screen'),
+        Node(package='bring_up', executable='follow_manager', name='follow_manager',
+             output='screen', parameters=[{'enabled': ParameterValue(
+                 LaunchConfiguration('follow_enabled'), value_type=bool)}]),
+        Node(package='twist_mux', executable='twist_mux', name='twist_mux', output='screen',
+             parameters=[twist_mux_params], remappings=[('cmd_vel_out', 'cmd_vel_mux')]),
+    ]
+    if enabled(context, 'hardware'):
+        # Motors only start in follow mode, and stay idle until e_stop is armed.
+        nodes += [
+            Node(package='joy', executable='joy_node', name='joy_node', output='screen'),
+            Node(package='bring_up', executable='e_stop', name='e_stop', output='screen'),
+            Node(package='bring_up', executable='ps4_teleop', name='ps4_teleop',
+                 output='screen', parameters=[{'cmd_vel_topic': 'cmd_vel_joy'}]),
+            Node(package='bring_up', executable='ultrasonic_estop', name='ultrasonic_estop',
+                 output='screen'),
+            Node(package='bring_up', executable='diff_drive_controller',
+                 name='diff_drive_controller', output='screen',
+                 parameters=[{'cmd_vel_topic': 'cmd_vel_mux'}]),
+        ]
+    return nodes
+
+
 def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument('autostart', default_value='true'),
@@ -61,6 +119,10 @@ def generate_launch_description():
         DeclareLaunchArgument('map', default_value='', description='Saved map YAML when slam=false'),
         DeclareLaunchArgument('params_file', default_value=PathJoinSubstitution([
             FindPackageShare('bring_up'), 'config', 'nav2_params.yaml'])),
+        DeclareLaunchArgument('follow', default_value='false', choices=['true', 'false'],
+                              description='Follow the GPS beacon (requires slam:=false)'),
+        DeclareLaunchArgument('follow_enabled', default_value='true', choices=['true', 'false'],
+                              description='Start following at launch; toggle with /follow/enable'),
         GroupAction(condition=IfCondition(LaunchConfiguration('hardware')), actions=[
             include('bring_up', 'robot_state_publisher.launch.py'),
             include('beacon_pkg', 'beacon_receiver.launch.py'),
@@ -74,15 +136,8 @@ def generate_launch_description():
                 'use_sim_time': LaunchConfiguration('use_sim_time'),
             }),
             include('bring_up', 'rf2o_laser_odometry.launch.py'),
-            # Beacon GPS goals need a shared map datum (priority 3). Keep
-            # automatic goal publication off until that conversion is fixed.
         ]),
         OpaqueFunction(function=map_source),
-        include('bring_up', 'nav2.launch.py', {
-            'autostart': LaunchConfiguration('autostart'),
-            'use_sim_time': LaunchConfiguration('use_sim_time'),
-            'params_file': LaunchConfiguration('params_file'),
-        }),
-        # Motor startup remains deliberately absent until stop/watchdog handling
-        # is implemented. No launch argument enables the current motor driver.
+        OpaqueFunction(function=navigation),
+        OpaqueFunction(function=follow_nodes),
     ])

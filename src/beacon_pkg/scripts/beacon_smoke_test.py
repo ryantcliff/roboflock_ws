@@ -88,6 +88,8 @@ def main():
         imu_pub = node.create_publisher(Imu, '/imu', 10)
         odom_pub = node.create_publisher(Odometry, '/odometry/filtered', 10)
         node.create_subscription(PoseStamped, '/beacon/map_pose', output.append, 10)
+        goals = []
+        node.create_subscription(PoseStamped, '/goal_update', goals.append, 10)
         node.create_subscription(Odometry, '/odometry/gps', gps_output.append,
                                  qos_profile_sensor_data)
         start(['ros2', 'run', 'beacon_pkg', 'beacon_goalpose', '--ros-args',
@@ -140,6 +142,18 @@ def main():
         check_position(fix(lon=datum_lon + east), 10, 0)
         check_position(fix(lat=datum_lat + north), 0, 10)
         print('PASS same location, 10 m east, 10 m north and original timestamps', flush=True)
+
+        # Follow targets beyond max_goal_distance (20 m) are pulled in toward the robot.
+        goals.clear()
+        check_position(fix(lon=datum_lon + 4 * east), 40, 0)
+        until(lambda: bool(goals), 3)
+        goal = goals[-1].pose.position
+        assert abs(goal.x - 20.0) < 0.1 and abs(goal.y) < 0.1, goal
+        goals.clear()
+        check_position(fix(lon=datum_lon + east), 10, 0)
+        until(lambda: bool(goals), 3)
+        assert abs(goals[-1].pose.position.x - 10.0) < 0.05, goals[-1].pose.position
+        print('PASS /goal_update: 40 m target clamped to 20 m, 10 m target unchanged', flush=True)
 
         invalid = []
         msg = fix(); msg.status.status = -1; invalid.append(msg)

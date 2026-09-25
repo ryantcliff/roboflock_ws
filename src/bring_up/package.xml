@@ -28,6 +28,10 @@
   <exec_depend>xacro</exec_depend>
   <exec_depend>robot_state_publisher</exec_depend>
   <exec_depend>twist_mux</exec_depend>
+  <exec_depend>nav2_msgs</exec_depend>
+  <exec_depend>std_srvs</exec_depend>
+  <exec_depend>action_msgs</exec_depend>
+  <exec_depend>nav2_common</exec_depend>
   <exec_depend>joy</exec_depend>
   <exec_depend>ultrasonic_pkg</exec_depend>
   <exec_depend>beacon_pkg</exec_depend>
@@ -41,7 +45,6 @@
   <exec_depend>std_msgs</exec_depend>
   <exec_depend>tf2_ros</exec_depend>
   <test_depend>tf2_msgs</test_depend>
-  <test_depend>nav2_msgs</test_depend>
   <test_depend>lifecycle_msgs</test_depend>
 
   <test_depend>ament_copyright</test_depend>
