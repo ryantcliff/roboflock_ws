@@ -77,6 +77,28 @@ def navigation(context):
     })]
 
 
+def sim_nodes(context):
+    if not enabled(context, 'sim'):
+        return []
+    if enabled(context, 'hardware'):
+        raise RuntimeError('sim:=true replaces the drivers; also set hardware:=false')
+    # Same localization and robot model as hardware; fake sensors and motors.
+    nodes = [
+        include('bring_up', 'robot_state_publisher.launch.py'),
+        include('bring_up', 'localization.launch.py', {
+            'gps_localization': 'false' if enabled(context, 'slam') else 'true',
+            'use_sim_time': LaunchConfiguration('use_sim_time'),
+        }),
+        Node(package='bring_up', executable='fake_robot', name='fake_robot', output='screen',
+             parameters=[{'cmd_vel_topic':
+                          'cmd_vel_mux' if enabled(context, 'follow') else 'cmd_vel'}]),
+    ]
+    if enabled(context, 'follow') and enabled(context, 'fake_beacon'):
+        nodes.append(Node(package='bring_up', executable='fake_beacon', name='fake_beacon',
+                          output='screen'))
+    return nodes
+
+
 def follow_nodes(context):
     if not enabled(context, 'follow'):
         return []
@@ -121,6 +143,10 @@ def generate_launch_description():
             FindPackageShare('bring_up'), 'config', 'nav2_params.yaml'])),
         DeclareLaunchArgument('follow', default_value='false', choices=['true', 'false'],
                               description='Follow the GPS beacon (requires slam:=false)'),
+        DeclareLaunchArgument('sim', default_value='false', choices=['true', 'false'],
+                              description='Fake robot and sensors (with hardware:=false)'),
+        DeclareLaunchArgument('fake_beacon', default_value='true', choices=['true', 'false'],
+                              description='With sim and follow: walk a fake beacon'),
         DeclareLaunchArgument('follow_enabled', default_value='true', choices=['true', 'false'],
                               description='Start following at launch; toggle with /follow/enable'),
         GroupAction(condition=IfCondition(LaunchConfiguration('hardware')), actions=[
@@ -139,5 +165,6 @@ def generate_launch_description():
         ]),
         OpaqueFunction(function=map_source),
         OpaqueFunction(function=navigation),
+        OpaqueFunction(function=sim_nodes),
         OpaqueFunction(function=follow_nodes),
     ])

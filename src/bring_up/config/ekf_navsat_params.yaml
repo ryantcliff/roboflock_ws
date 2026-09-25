@@ -2,7 +2,7 @@
 ---
 ekf_filter_node_odom:
   ros__parameters:
-    frequency: 60.0
+    frequency: 30.0  # Jetson CPU budget; rf2o 10 Hz, IMU 100 Hz
     publish_tf: true
     two_d_mode: true
     print_diagnostics: true
@@ -91,7 +91,7 @@ ekf_filter_node_odom:
 
 ekf_filter_node_map:
     ros__parameters:
-      frequency: 50.0
+      frequency: 30.0  # Jetson CPU budget
       publish_tf: true
       two_d_mode: true
       print_diagnostics: true
@@ -189,7 +189,7 @@ ekf_filter_node_map:
 
 navsat_transform_node:
   ros__parameters:
-    frequency: 50.0
+    frequency: 10.0  # GPS is 5 Hz
     delay: 3.0
     # Measurement is for UB lat/long, Burning Man will require recalculating at
     # https://www.ngdc.noaa.gov/geomag/calculators/magcalc.shtml

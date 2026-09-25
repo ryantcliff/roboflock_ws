@@ -35,6 +35,8 @@ setup(
             'ultrasonic_estop = bring_up.ultrasonic_estop:main',
             'gps_monitor = bring_up.gps_monitor:main',
             'follow_manager = bring_up.follow_manager:main',
+            'fake_robot = bring_up.fake_robot:main',
+            'fake_beacon = bring_up.fake_beacon:main',
         ],
     },
 )

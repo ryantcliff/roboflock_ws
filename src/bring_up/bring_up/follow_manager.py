@@ -70,7 +70,7 @@ class FollowManager(Node):
             retry_delay=self.declare_parameter('retry_delay', 2.0).value,
         )
         self.target = None
-        self.handle = None
+        self.goal_handle = None
         self.client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
         self.create_subscription(PoseStamped, 'goal_update', self._target_cb, 10)
         self.create_service(SetBool, 'follow/enable', self._enable_cb)
@@ -102,10 +102,10 @@ class FollowManager(Node):
             goal.behavior_tree = self.tree
             self.get_logger().info('Beacon fresh: starting follow goal')
             self.client.send_goal_async(goal).add_done_callback(self._goal_response)
-        elif action == 'cancel' and self.handle is not None:
+        elif action == 'cancel' and self.goal_handle is not None:
             reason = 'disabled' if not self.logic.enabled else 'beacon stale'
             self.get_logger().warn(f'Stopping follow goal ({reason})')
-            self.handle.cancel_goal_async()
+            self.goal_handle.cancel_goal_async()
 
     def _goal_response(self, future):
         handle = future.result()
@@ -113,7 +113,7 @@ class FollowManager(Node):
             self.get_logger().warn('Nav2 rejected the follow goal')
             self.logic.on_finished(self._now(), cancelled_by_us=False)
             return
-        self.handle = handle
+        self.goal_handle = handle
         self.logic.on_accepted()
         handle.get_result_async().add_done_callback(self._goal_done)
 
@@ -122,7 +122,7 @@ class FollowManager(Node):
         cancelled = status == GoalStatus.STATUS_CANCELED
         if not cancelled:
             self.get_logger().warn(f'Follow goal ended with status {status}; retrying')
-        self.handle = None
+        self.goal_handle = None
         self.logic.on_finished(self._now(), cancelled_by_us=cancelled)
 
 

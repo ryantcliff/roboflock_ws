@@ -508,6 +508,15 @@
   </collision>
 </link>
 
+<!-- GPS antenna frame used by navsat_transform_node. TODO: measure the real
+     antenna offset from base_link; zero until then. -->
+<link name="gps"/>
+<joint name="gps_joint" type="fixed">
+  <parent link="base_link"/>
+  <child link="gps"/>
+  <origin xyz="0 0 0" rpy="0 0 0"/>
+</joint>
+
 <link name="lidar_link">
   <inertial>
     <origin xyz="0 0 0" rpy="0 0 0"/>
