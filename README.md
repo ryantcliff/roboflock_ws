@@ -14,10 +14,12 @@ https://github.com/user-attachments/assets/d75cb297-7618-43ef-b84b-9466528e4aed
 - Autonomous navigation with **Nav2**, **SLAM**, and `robot_localization`, fusing **LiDAR + GPS**.
 - Custom **ROS 2 nodes** for 2D LiDAR visualization and a differential-drive controller interfaced with **ODrive** motor modules.
 - Microcontroller-driven **ultrasonic sensing** as an independent obstacle-detection failsafe.
+- **Beacon following**: drives after a person carrying a GPS beacon and stops 3 m short.
+- **Return home** to a Meshtastic home station, even after the station is moved.
 - Runs on an **NVIDIA Jetson Orin Nano** with a custom-wired power and motor-driver stack.
 
 ## Stack
-ROS 2 · C++ / Python · Nav2 · SLAM · robot_localization · ODrive · LiDAR · GPS · NVIDIA Jetson Orin Nano
+ROS 2 Humble · C++ / Python · Nav2 · SLAM · robot_localization · ODrive · LiDAR · GPS (u-blox) · HC-12 · Meshtastic · NVIDIA Jetson Orin Nano
 
 ## Repository layout
 ```
@@ -73,9 +75,8 @@ Mapping is owned by the main bringup, not the navigation launcher:
 - `enable_mapping:=false` starts neither map source (for debugging or an
   externally supplied map).
 
-`hardware:=true` remains the normal bringup default. Motor startup remains
-excluded until command timeout and stop protections are implemented. For the
-currently disconnected Jetson, use the full debug command above. `use_sim_time`
+`hardware:=true` remains the normal bringup default. Motors start only in
+`follow:=true` mode (see below), behind the joystick e-stop. `use_sim_time`
 is forwarded to navigation and mapping; leave it false without a `/clock` source.
 
 
@@ -94,11 +95,10 @@ it alongside the local EKF. Nav2's controller, navigator, and velocity smoother
 use `/odometry/local`. In GPS mode, `navsat_transform_node` reads its matching
 YAML section and the global EKF fuses GPS position with IMU and RF2O motion.
 `enable_mapping:=false` only disables the map source: it does not change the
-localization choice. With `hardware:=false`, no EKFs or sensor drivers start.
+localization choice. With `hardware:=false`, no EKFs or sensor drivers start
+(unless `sim:=true`, which runs the EKFs on simulated sensors).
 
 Mapping mode deliberately does not run the global GPS EKF or navsat transform.
-Automatic beacon goals are excluded from main bringup until their coordinates
-are converted into the same map datum (priority 3). Motors remain excluded.
 
 Run the repeatable tests from the workspace root after building and sourcing:
 ```bash
@@ -112,8 +112,19 @@ python src/bring_up/scripts/nav2_smoke_test.py
 # Real local EKF driven by synthetic IMU and laser odometry:
 python src/bring_up/scripts/nav2_smoke_test.py --localization local
 
-# Both real EKFs and navsat_transform, also fed synthetic GPS fixes:
+# Both real EKFs and navsat_transform, fed synthetic GPS fixes; also drives the
+# robot 10 m and checks /odometry/global and /odometry/gps agree within 0.2 m:
 python src/bring_up/scripts/nav2_smoke_test.py --localization gps
+
+# Beacon GPS -> map conversion (beacon_goalpose + navsat /fromLL):
+python src/beacon_pkg/scripts/beacon_smoke_test.py
+
+# Full beacon following and return home on a simulated robot (~5 min):
+python src/bring_up/scripts/follow_smoke_test.py --beacon-speed 1.2
+
+# Unit tests (e-stop, GPS monitor, mission logic, Meshtastic parsing):
+python3 -m pytest src/bring_up/test/test_e_stop.py src/bring_up/test/test_gps_monitor.py \
+  src/bring_up/test/test_mission_manager.py src/bring_up/test/test_meshtastic_bridge.py
 ```
 
 Each test uses localhost-only ROS domain 87, refuses an occupied domain, and
@@ -134,3 +145,70 @@ sensor transforms and GPS coordinates are test data, not hardware calibration.
 A saved map also requires a consistent datum/orientation across restarts; the
 current automatic datum is not a persisted map alignment. These remain hardware
 commissioning requirements, even when the integration tests pass.
+
+
+## Beacon following and return home
+
+The robot follows a person (Tom) carrying a GPS beacon, and can drive back to a
+home station that may be moved at any time. Both run on the GPS-aligned `map`
+frame, so they require `slam:=false`.
+
+```bash
+# On the robot (hardware):
+ros2 launch bring_up bringup.launch.py follow:=true slam:=false
+
+# Also connect the Meshtastic home station:
+ros2 launch bring_up bringup.launch.py follow:=true slam:=false station:=true \
+  meshtastic_port:=/dev/ttyACM0 home_node_id:=<home node number>
+
+# Hardware-free simulation (fake robot, sensors and walking beacon; real EKFs and Nav2):
+ros2 launch bring_up bringup.launch.py follow:=true slam:=false hardware:=false sim:=true
+```
+
+Change mode from the Meshtastic app (text message) or from the Jetson:
+```bash
+ros2 topic pub --once /station/command std_msgs/msg/String "data: home"   # follow | home | stop | status
+```
+
+| Piece | What it does |
+| --- | --- |
+| HC-12 radio (`beacon_receiver.launch.py`) | Beacon GPS NMEA into `/dev/ttyTHS1`, published as `/gps/beacon/fix` |
+| `beacon_goalpose` / `home_goalpose` | Convert beacon / home lat-lon to `map` via navsat `/fromLL`; targets over 20 m away are pulled in so they stay on the 50 m rolling costmap |
+| `mission_manager` | Modes `idle`, `follow` (stop 3 m short, `follow_beacon.xml`), `home` (stop 1.5 m short, `return_home.xml`); cancels the Nav2 goal when the target goes stale (3 s) or the mode changes; status on `/robot/status` |
+| `meshtastic_bridge` (`station:=true`) | Home station positions to `/home/fix`, republished at 1 Hz until 30 min old; text commands to `/station/command`; status back over the mesh |
+| `twist_mux` | Nav2 `/cmd_vel`, joystick `/cmd_vel_joy`, ultrasonic `/cmd_vel_estop` in; `/cmd_vel_mux` out to `diff_drive_controller` |
+| `e_stop` | PS4 Cross stops, Options arms; losing the joystick for 0.5 s stops. Motors stay idle until armed |
+| `diff_drive_controller` | ODrives; idles on e-stop, commands zero after 0.5 s without `/cmd_vel` |
+
+Nav2 uses Regulated Pure Pursuit at 10 Hz (MPPI was too heavy for the Orin
+Nano), up to 1.2 m/s, braking at 1.5 m/s². Acceleration is 0.5 m/s², matching
+the ODrive velocity ramp, so the robot lags a steady walker and catches up
+when they stop.
+
+### Hardware assignment
+- **Robot:** u-blox ZED-F9P (dual-band) on USB (`/dev/ublox_gps`, see
+  `config/robot_gps.yaml`), HC-12 receiver on `/dev/ttyTHS1`, Meshtastic node on USB.
+- **Beacon (Tom):** NEO-M8P, NMEA GGA at 9600 baud into the HC-12 transmitter.
+  Tom also carries a Meshtastic handheld paired with their phone for commands.
+- **Home station:** Meshtastic node with GPS on, smart position broadcast on, and
+  channel position precision 32 bits (lower precision rounds the position off).
+- The Python `meshtastic` library is a PyPI dependency (`pip install --user meshtastic==2.7.11`).
+
+### Known issue: tf2 deadlock
+On Humble (`tf2_ros` 0.25.23), a lidar scan stamped ahead of TF can deadlock
+Nav2's costmap TF listener (`MessageFilter` vs `testTransformableRequests`), and
+the controller then freezes with "extrapolation into the future" errors. The
+simulated lidar stamps scans 0.1 s back like `rplidar_ros`. If the real robot
+freezes this way, check the lidar's scan stamps first.
+
+### Hardware commissioning checklist
+1. `sudo usermod -aG dialout roboflock` (serial ports), udev rules for
+   `/dev/ublox_gps`, `/dev/rplidar_usb` and the Meshtastic node.
+2. Check for a dual-band (L1/L2) antenna for the ZED-F9P.
+3. Measure the `base_link` -> `gps` antenna offset (the URDF `gps` link is zero),
+   verify IMU mounting and ENU heading, set magnetic declination.
+4. Wheels raised: e-stop (Cross, Options, unplugging the joystick), 1.5 m/s²
+   braking, and the stale `/cmd_vel` watchdog.
+5. Stationary GPS: log `/odometry/global` for 5 min and measure drift.
+6. Set up Meshtastic (robot, home station, Tom's handheld) and pass the node numbers.
+7. Open field: walker at least 10 m ahead, spotter holding the PS4 controller.
