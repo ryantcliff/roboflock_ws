@@ -158,8 +158,8 @@ frame, so they require `slam:=false`.
 ros2 launch bring_up bringup.launch.py follow:=true slam:=false
 
 # Also connect the Meshtastic home station:
-ros2 launch bring_up bringup.launch.py follow:=true slam:=false station:=true \
-  meshtastic_port:=/dev/ttyACM0 home_node_id:=<home node number>
+# (defaults: meshtastic_port:=/dev/meshtastic home_node_id:=!6c743480)
+ros2 launch bring_up bringup.launch.py follow:=true slam:=false station:=true
 
 # Hardware-free simulation (fake robot, sensors and walking beacon; real EKFs and Nav2):
 ros2 launch bring_up bringup.launch.py follow:=true slam:=false hardware:=false sim:=true
@@ -192,6 +192,17 @@ when they stop.
   Tom also carries a Meshtastic handheld paired with their phone for commands.
 - **Home station:** Meshtastic node with GPS on, smart position broadcast on, and
   channel position precision 32 bits (lower precision rounds the position off).
+- **Meshtastic radios** (LILYGO T-Beams, all role CLIENT):
+
+  | Label | Node | Use |
+  | --- | --- | --- |
+  | ROBT | `!6c73d700` | Robot, USB to the Jetson (`/dev/meshtastic`), GPS off |
+  | HOME | `!6c743480` | Home station, GPS on, smart broadcast |
+  | TOM | `!bb80e074` | Tom's handheld, paired with the phone app; allowed to send commands |
+
+  Channel 0 on all three is the private `roboflock` channel (position precision
+  32). Its key is on the Jetson in `~/.config/roboflock/meshtastic_primary_psk.b64`
+  (not in git). Channel 1 `fromJetson` carries robot status.
 - The Python `meshtastic` library is a PyPI dependency (`pip install --user meshtastic==2.7.11`).
 
 ### Known issue: tf2 deadlock
@@ -203,9 +214,9 @@ freezes this way, check the lidar's scan stamps first.
 
 ### Hardware commissioning checklist
 1. `sudo usermod -aG dialout roboflock` (serial ports), then install the udev
-   rules for `/dev/ublox_gps` and `/dev/rplidar_usb`:
+   rules for `/dev/ublox_gps`, `/dev/rplidar_usb`, `/dev/meshtastic` and the PS4 controller:
    `sudo cp src/bring_up/udev/99-roboflock.rules /etc/udev/rules.d/ && sudo udevadm control --reload-rules && sudo udevadm trigger`.
-   The Meshtastic node still needs a rule. Use a data USB-C cable for the
+   Use a data USB-C cable for the
    ZED-F9P; with a charge-only cable the board powers up but never appears.
 2. Check for a dual-band (L1/L2) antenna for the ZED-F9P.
 3. GPS antenna offset measured (0.16 m forward, 0.63 m above ground) and set in the URDF;
@@ -213,5 +224,6 @@ freezes this way, check the lidar's scan stamps first.
 4. Wheels raised: e-stop (Cross, Options, unplugging the joystick), 1.5 m/s²
    braking, and the stale `/cmd_vel` watchdog.
 5. Stationary GPS: log `/odometry/global` for 5 min and measure drift.
-6. Set up Meshtastic (robot, home station, Tom's handheld) and pass the node numbers.
+6. Meshtastic radios configured (see Hardware assignment). Still to do: pair Tom's
+   phone with TOM, and test commands and a home position outdoors.
 7. Open field: walker at least 10 m ahead, spotter holding the PS4 controller.

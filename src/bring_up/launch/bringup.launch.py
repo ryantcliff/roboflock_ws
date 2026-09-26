@@ -168,7 +168,7 @@ def generate_launch_description():
                               description='With hardware: Meshtastic bridge to the home station'),
         DeclareLaunchArgument('meshtastic_port', default_value='/dev/meshtastic',
                               description='Serial device of the robot Meshtastic node'),
-        DeclareLaunchArgument('home_node_id', default_value='0',
+        DeclareLaunchArgument('home_node_id', default_value='!6c743480',
                               description='Meshtastic node number or !hex id of the home station'),
         GroupAction(condition=IfCondition(LaunchConfiguration('hardware')), actions=[
             include('bring_up', 'robot_state_publisher.launch.py'),
