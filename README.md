@@ -249,6 +249,7 @@ freezes this way, check the lidar's scan stamps first.
 4. Wheels raised: e-stop (Cross, Options, unplugging the joystick), 1.5 m/s²
    braking, and the stale `/cmd_vel` watchdog.
 5. Stationary GPS: log `/odometry/global` for 5 min and measure drift.
-6. Meshtastic radios configured (see Hardware assignment). Still to do: pair Tom's
-   phone with TOM, and test commands and a home position outdoors.
+6. Meshtastic radios configured (see Hardware assignment); Tom's phone is paired
+   with TOM, and `status`/`stop` round-trip to the robot. Still to do: a home
+   position from HOME outdoors.
 7. Open field: walker at least 10 m ahead, spotter holding the PS4 controller.
