@@ -508,13 +508,16 @@
   </collision>
 </link>
 
-<!-- GPS antenna frame used by navsat_transform_node. TODO: measure the real
-     antenna offset from base_link; zero until then. -->
+<!-- GPS antenna frame used by navsat_transform_node. Measured on the robot
+     (2026-09-26): 16 cm forward of the wheel midpoint, on the center line,
+     63 cm above the ground. base_link sits 0.169 m above the ground (bottom
+     of the wheel meshes), so z = 0.63 - 0.169. x is forward (REP-103), which
+     is how odometry moves base_link. -->
 <link name="gps"/>
 <joint name="gps_joint" type="fixed">
   <parent link="base_link"/>
   <child link="gps"/>
-  <origin xyz="0 0 0" rpy="0 0 0"/>
+  <origin xyz="0.16 0 0.461" rpy="0 0 0"/>
 </joint>
 
 <link name="lidar_link">

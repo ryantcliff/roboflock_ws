@@ -208,7 +208,7 @@ freezes this way, check the lidar's scan stamps first.
    The Meshtastic node still needs a rule. Use a data USB-C cable for the
    ZED-F9P; with a charge-only cable the board powers up but never appears.
 2. Check for a dual-band (L1/L2) antenna for the ZED-F9P.
-3. Measure the `base_link` -> `gps` antenna offset (the URDF `gps` link is zero),
+3. GPS antenna offset measured (0.16 m forward, 0.63 m above ground) and set in the URDF;
    verify IMU mounting and ENU heading, set magnetic declination.
 4. Wheels raised: e-stop (Cross, Options, unplugging the joystick), 1.5 m/s²
    braking, and the stale `/cmd_vel` watchdog.
