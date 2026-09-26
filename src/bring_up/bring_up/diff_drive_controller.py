@@ -8,8 +8,8 @@ from odrive.enums import AxisState, InputMode, ControlMode
 import math
 
 
-WHEEL_RADIUS = 0.254       # meters 
-WHEEL_SEPARATION = 0.3  # meters — update to your measured value
+WHEEL_RADIUS = 0.125       # meters (25 cm wheels, measured 2026-09-26)
+WHEEL_SEPARATION = 0.74    # meters, left to right wheel centers (measured 2026-09-26)
 GEAR_RATIO = 30.0        # 30:1 gearbox
 
 SERIAL_NUMBERS = {
