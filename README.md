@@ -190,6 +190,12 @@ when they stop.
 - **Robot:** u-blox ZED-F9P (dual-band) on USB (`/dev/ublox_gps`, see
   `config/robot_gps.yaml`), HC-12 receiver on `/dev/ttyTHS1`, Meshtastic node on USB.
 - **Beacon (Tom):** NEO-M8P, NMEA GGA at 9600 baud into the HC-12 transmitter.
+  Wiring: NEO-M8P UART1 TX to HC-12 RXD, common GND, 5 V from a power bank to the
+  NEO-M8P's USB and HC-12 VCC; leave HC-12 SET unconnected (factory defaults:
+  9600 baud, channel 001, FU3, matching the robot's HC-12). Configure the NEO-M8P
+  once over USB (UART1: GGA only, 5 Hz, saved to flash):
+  `python3 src/beacon_pkg/scripts/configure_beacon_gps.py /dev/ttyACM<n>`
+  (`--check` only verifies).
   Tom also carries a Meshtastic handheld paired with their phone for commands.
 - **Home station:** Meshtastic node with GPS on, smart position broadcast on, and
   channel position precision 32 bits (lower precision rounds the position off).
