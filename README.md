@@ -122,9 +122,10 @@ python src/beacon_pkg/scripts/beacon_smoke_test.py
 # Full beacon following and return home on a simulated robot (~5 min):
 python src/bring_up/scripts/follow_smoke_test.py --beacon-speed 1.2
 
-# Unit tests (e-stop, GPS monitor, mission logic, Meshtastic parsing):
+# Unit tests (e-stop, GPS monitor, mission logic, Meshtastic parsing, ultrasonic stop):
 python3 -m pytest src/bring_up/test/test_e_stop.py src/bring_up/test/test_gps_monitor.py \
-  src/bring_up/test/test_mission_manager.py src/bring_up/test/test_meshtastic_bridge.py
+  src/bring_up/test/test_mission_manager.py src/bring_up/test/test_meshtastic_bridge.py \
+  src/bring_up/test/test_ultrasonic_estop.py
 ```
 
 Each test uses localhost-only ROS domain 87, refuses an occupied domain, and
