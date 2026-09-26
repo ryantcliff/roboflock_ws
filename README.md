@@ -202,8 +202,11 @@ simulated lidar stamps scans 0.1 s back like `rplidar_ros`. If the real robot
 freezes this way, check the lidar's scan stamps first.
 
 ### Hardware commissioning checklist
-1. `sudo usermod -aG dialout roboflock` (serial ports), udev rules for
-   `/dev/ublox_gps`, `/dev/rplidar_usb` and the Meshtastic node.
+1. `sudo usermod -aG dialout roboflock` (serial ports), then install the udev
+   rules for `/dev/ublox_gps` and `/dev/rplidar_usb`:
+   `sudo cp src/bring_up/udev/99-roboflock.rules /etc/udev/rules.d/ && sudo udevadm control --reload-rules && sudo udevadm trigger`.
+   The Meshtastic node still needs a rule. Use a data USB-C cable for the
+   ZED-F9P; with a charge-only cable the board powers up but never appears.
 2. Check for a dual-band (L1/L2) antenna for the ZED-F9P.
 3. Measure the `base_link` -> `gps` antenna offset (the URDF `gps` link is zero),
    verify IMU mounting and ENU heading, set magnetic declination.
