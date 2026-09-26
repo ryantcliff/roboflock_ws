@@ -7,3 +7,8 @@ SUBSYSTEM=="tty", ATTRS{idVendor}=="1546", ATTRS{idProduct}=="01a9", MODE="0666"
 # RPLidar (CP2102 USB-UART bridge) -> /dev/rplidar_usb
 # If the Meshtastic node also uses a CP210x, this needs narrowing by USB port.
 SUBSYSTEM=="tty", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", MODE="0666", SYMLINK+="rplidar_usb"
+
+# PS4 controller (DualShock 4, USB or Bluetooth). joy_node reads the event
+# device through SDL, which is root:input 0660 and only ACL'd to the desktop
+# session, so a headless roboflock user can't open it.
+SUBSYSTEM=="input", KERNEL=="event*|js*", ATTRS{id/vendor}=="054c", ATTRS{id/product}=="05c4|09cc", MODE="0666"
