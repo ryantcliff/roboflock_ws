@@ -33,6 +33,7 @@ setup(
             'e_stop = bring_up.e_stop:main',
             'ps4_teleop = bring_up.ps4_teleop:main',
             'ultrasonic_estop = bring_up.ultrasonic_estop:main',
+            'bno085_imu = bring_up.bno085_imu:main',
             'gps_monitor = bring_up.gps_monitor:main',
             'mission_manager = bring_up.mission_manager:main',
             'meshtastic_bridge = bring_up.meshtastic_bridge:main',

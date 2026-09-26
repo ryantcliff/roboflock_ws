@@ -1,0 +1,6 @@
+bno085_imu:
+  ros__parameters:
+    i2c_bus: 1        # header pins 27 (SDA) / 28 (SCL)
+    address: 0x4A     # 0x4B if the board's DI/ADR jumper is set
+    frame_id: base_link
+    rate: 50.0        # Hz

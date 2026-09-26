@@ -170,11 +170,13 @@ def generate_launch_description():
                               description='Serial device of the robot Meshtastic node'),
         DeclareLaunchArgument('home_node_id', default_value='!6c743480',
                               description='Meshtastic node number or !hex id of the home station'),
+        DeclareLaunchArgument('imu', default_value='mpu9250', choices=['mpu9250', 'bno085'],
+                              description='IMU driver (mpu9250 has no real heading)'),
         GroupAction(condition=IfCondition(LaunchConfiguration('hardware')), actions=[
             include('bring_up', 'robot_state_publisher.launch.py'),
             include('beacon_pkg', 'beacon_receiver.launch.py'),
             include('bring_up', 'robot_gps.launch.py'),
-            include('bring_up', 'mpu9250.launch.py'),
+            include('bring_up', 'imu.launch.py', {'imu': LaunchConfiguration('imu')}),
             include('rplidar_ros', 'rplidar_a1_launch.py'),
             include('ultrasonic_pkg', 'ultrasonic_publisher.launch.py'),
             include('bring_up', 'localization.launch.py', {

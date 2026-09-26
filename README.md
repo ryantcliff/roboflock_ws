@@ -125,7 +125,7 @@ python src/bring_up/scripts/follow_smoke_test.py --beacon-speed 1.2
 # Unit tests (e-stop, GPS monitor, mission logic, Meshtastic parsing, ultrasonic stop):
 python3 -m pytest src/bring_up/test/test_e_stop.py src/bring_up/test/test_gps_monitor.py \
   src/bring_up/test/test_mission_manager.py src/bring_up/test/test_meshtastic_bridge.py \
-  src/bring_up/test/test_ultrasonic_estop.py
+  src/bring_up/test/test_ultrasonic_estop.py src/bring_up/test/test_bno085_imu.py
 ```
 
 Each test uses localhost-only ROS domain 87, refuses an occupied domain, and
@@ -206,6 +206,28 @@ when they stop.
   (not in git). Channel 1 `fromJetson` carries robot status.
 - The Python `meshtastic` library is a PyPI dependency (`pip install --user meshtastic==2.7.11`).
 
+### IMU: no compass yet
+The IMU board on the robot is an **MPU-6050** (WHO_AM_I `0x68`), not an MPU-9250.
+It has no magnetometer, so `mpu9250driver` publishes a fixed yaw (about -135°) and
+logs `Remote I/O error` for every compass read. GPS localization takes its absolute
+heading from the IMU, so **don't trust GPS localization or follow mode until a
+BNO085 is fitted**.
+
+- Wiring (either board): VCC to **3.3 V** (pin 1, not 5 V), GND to pin 6, SDA to pin
+  27, SCL to pin 28 (`/dev/i2c-1`). Mount it flat with X forward and Y left.
+- BNO085 support is ready but untested on hardware (`bring_up/bno085_imu.py`, fuses
+  the magnetometer on the chip). Install its libraries, then select it:
+  ```bash
+  pip install --user adafruit-circuitpython-bno08x adafruit-extended-bus
+  ros2 launch bring_up bringup.launch.py follow:=true slam:=false imu:=bno085
+  ```
+  Check it answers at `0x4A` with `i2cdetect -y -r 1`. Outdoors, point the robot
+  east and north and set navsat's `yaw_offset` / `magnetic_declination_radians`
+  in `config/ekf_navsat_params.yaml` so east reads 0.
+- `mpu9250driver` calibrates at startup by treating its current pose as level, so
+  it can't show a mounting tilt, and it keeps publishing if the sensor stops
+  answering.
+
 ### Known issue: tf2 deadlock
 On Humble (`tf2_ros` 0.25.23), a lidar scan stamped ahead of TF can deadlock
 Nav2's costmap TF listener (`MessageFilter` vs `testTransformableRequests`), and
@@ -220,8 +242,10 @@ freezes this way, check the lidar's scan stamps first.
    Use a data USB-C cable for the
    ZED-F9P; with a charge-only cable the board powers up but never appears.
 2. Check for a dual-band (L1/L2) antenna for the ZED-F9P.
-3. GPS antenna offset measured (0.16 m forward, 0.63 m above ground) and set in the URDF;
-   verify IMU mounting and ENU heading, set magnetic declination.
+3. GPS antenna offset measured (0.16 m forward, 0.63 m above ground) and set in the URDF.
+   IMU: the MPU-6050 is wired to `/dev/i2c-1` but not mounted, and has no compass.
+   Fit a BNO085 (see "IMU: no compass yet"), mount it, then check ENU heading
+   and set magnetic declination.
 4. Wheels raised: e-stop (Cross, Options, unplugging the joystick), 1.5 m/s²
    braking, and the stale `/cmd_vel` watchdog.
 5. Stationary GPS: log `/odometry/global` for 5 min and measure drift.
