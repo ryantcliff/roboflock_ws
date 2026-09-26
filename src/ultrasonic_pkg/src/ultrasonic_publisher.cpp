@@ -5,6 +5,7 @@
 #include <cstring>
 #include <vector>
 #include <map>
+#include <limits>
 #include <functional>
 #include <stdlib.h>
 #include <errno.h>
@@ -88,7 +89,7 @@ UltrasonicPublisher::initialize_sensors()
 		message.min_range = min_range_;
 		message.max_range = max_range_;
 		message.header.frame_id = frame_ids_[i];
-		sensor_msgs_.push_back(message);
+		sensor_msgs_[i] = message;  // already sized in the constructor
 	}
 	
 	return true;
@@ -258,7 +259,11 @@ UltrasonicPublisher::publish_data()
 		sensor_msgs_[i].header.stamp = now;
 		if (sensor_data_[i] <= 200)
 		{
-			sensor_msgs_[i].range = sensor_data_[i];
+			// The Arduino reports centimeters; 0 means no echo, which REP-117
+			// publishes as +inf (nothing in range) rather than an obstacle at 0 m.
+			sensor_msgs_[i].range = sensor_data_[i] == 0
+				? std::numeric_limits<float>::infinity()
+				: sensor_data_[i] / 100.0f;
 			publishers_[i]->publish(sensor_msgs_[i]);
 			RCLCPP_DEBUG(this->get_logger(),
 				"Published %s: range=%f\n",
