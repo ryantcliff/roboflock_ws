@@ -10,6 +10,10 @@ SUBSYSTEM=="tty", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", MODE="0666"
 # LILYGO T-Beam Meshtastic node (CH9102 USB-UART) -> /dev/meshtastic
 SUBSYSTEM=="tty", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="55d4", MODE="0666", SYMLINK+="meshtastic"
 
+# Ultrasonic Arduino Nano (FT232RL, matched by serial so other FTDI adapters
+# don't take the name) -> /dev/arduino_nano
+SUBSYSTEM=="tty", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6001", ATTRS{serial}=="AQ02VLE4", MODE="0666", SYMLINK+="arduino_nano"
+
 # PS4 controller (DualShock 4, USB or Bluetooth). joy_node reads the event
 # device through SDL, which is root:input 0660 and only ACL'd to the desktop
 # session, so a headless roboflock user can't open it.
