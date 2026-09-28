@@ -2,13 +2,14 @@ import odrive
 from odrive.enums import AxisState
 import time
 
+
 class RobotDrive:
     def __init__(self):
         self.serial_numbers_hex = {
-            "FR": "316633543334", # CONFIGURED
-            "FL": "357B358B3135", # CONFIGURED
-            "RR": "336636543334", # CONFIGURED
-            "RL": "336536573334"  # CONFIGURED 
+            "FR": "316633543334",  # CONFIGURED
+            "FL": "357B358B3135",  # CONFIGURED
+            "RR": "336636543334",  # CONFIGURED
+            "RL": "336536573334"  # CONFIGURED
         }
         self.drives = {}
 
@@ -34,7 +35,9 @@ class RobotDrive:
             if state == AxisState.CLOSED_LOOP_CONTROL:
                 print(f"  {name} enabled ✓")
             else:
-                print(f"  {name} FAILED — axis_err: {dev.axis0.error} | motor_err: {dev.axis0.motor.error}")
+                print(
+                    f"  {name} FAILED — axis_err: {dev.axis0.error} | "
+                    f"motor_err: {dev.axis0.motor.error}")
 
     def set_velocity(self, fl=0.0, fr=0.0, rl=0.0, rr=0.0):
         """Set velocity in turns/sec."""
@@ -60,7 +63,11 @@ class RobotDrive:
     def check_errors(self):
         print("Checking errors...")
         for name, dev in self.drives.items():
-            print(f"  {name} -> Axis: {dev.axis0.error} | Motor: {dev.axis0.motor.error} | Encoder: {dev.axis0.encoder.error}")
+            print(
+                f"  {name} -> Axis: {dev.axis0.error} | "
+                f"Motor: {dev.axis0.motor.error} | "
+                f"Encoder: {dev.axis0.encoder.error}")
+
 
 # --- Usage ---
 if __name__ == "__main__":
@@ -71,7 +78,7 @@ if __name__ == "__main__":
 
     print("Running motors...")
     # Note: 1000 RPM / 60 = 16.6 turns/sec
-    #robot.set_rpm(fl=2500, fr=2500, rl=2500, rr=2500)
+    # robot.set_rpm(fl=2500, fr=2500, rl=2500, rr=2500)
 
     time.sleep(10)
 

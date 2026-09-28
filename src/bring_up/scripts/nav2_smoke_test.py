@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Activate real Nav2 against a stationary synthetic robot, then request a path.
+"""
+Activate real Nav2 against a stationary synthetic robot, then request a path.
 
 Run after sourcing ROS and this workspace. Uses an isolated ROS domain (87 by
  default); refuses to run if any nodes already exist there. No motor nodes,
@@ -19,8 +20,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--domain-id', type=int, default=87)
     parser.add_argument('--timeout', type=float, default=90.0)
-    parser.add_argument('--localization', choices=['synthetic', 'local', 'gps'],
-                        default='synthetic', help='Use synthetic TF or actual robot_localization EKFs')
+    parser.add_argument(
+        '--localization', choices=['synthetic', 'local', 'gps'],
+        default='synthetic',
+        help='Use synthetic TF or actual robot_localization EKFs')
     parser.add_argument('--log', default='/tmp/roboflock-nav2-smoke.log')
     args = parser.parse_args()
     if not 0 <= args.domain_id <= 101:
@@ -69,6 +72,7 @@ def main():
         convergence = math.atan(math.tan(math.radians(gps_lon + 81.0))
                                 * math.sin(math.radians(gps_lat)))  # UTM zone 17
         yaw = -(0.17872172 - convergence) if args.localization == 'gps' else 0.0
+
         def received_odom(kind, msg):
             if all(math.isfinite(v) for v in (msg.pose.pose.position.x, msg.pose.pose.position.y)):
                 received[kind] = True
@@ -283,7 +287,9 @@ def main():
                 raise AssertionError(f'/odometry/global is {gap:.2f} m from /odometry/gps')
             print(f'PASS GPS walk: global moved {math.hypot(*moved["global"]):.2f} m, '
                   f'gps {math.hypot(*moved["gps"]):.2f} m, gap {gap:.2f} m', flush=True)
-        print(f'PASS hardware-free Nav2 activation and planning ({args.localization}). Log: {args.log}')
+        print(
+            'PASS hardware-free Nav2 activation and planning '
+            f'({args.localization}). Log: {args.log}')
     finally:
         for child in (process, localization_process):
             if child is not None and child.poll() is None:

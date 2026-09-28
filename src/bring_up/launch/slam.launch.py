@@ -6,11 +6,13 @@ from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 from ament_index_python.packages import get_package_share_directory
 
+
 def generate_launch_description():
     bringup_dir = get_package_share_directory('bring_up')
-    
-    slam_params_file = os.path.join(bringup_dir, 'config', 'slam_params.yaml')  # Assuming you have this
-    
+
+    slam_params_file = os.path.join(
+        bringup_dir, 'config', 'slam_params.yaml')  # Assuming you have this
+
     return LaunchDescription([
         DeclareLaunchArgument("use_sim_time", default_value="false"),
         DeclareLaunchArgument(

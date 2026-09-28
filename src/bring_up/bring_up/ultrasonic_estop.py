@@ -8,7 +8,8 @@ from geometry_msgs.msg import Twist
 
 
 class UltrasonicLogic:
-    """Decide when the ultrasonic sensors call for a stop.
+    """
+    Decide when the ultrasonic sensors call for a stop.
 
     A sensor counts as blocked after required_readings consecutive readings
     closer than min_safe_distance, so a single glitched echo doesn't stop the
@@ -41,7 +42,8 @@ class UltrasonicLogic:
 
 
 class UltrasonicEstop(Node):
-    """Independent safety failsafe.
+    """
+    Provide an independent safety failsafe.
 
     LIDAR-based Nav2 costmap obstacle avoidance is the primary obstacle
     detection system. This node is a last-resort backstop for the LIDAR's

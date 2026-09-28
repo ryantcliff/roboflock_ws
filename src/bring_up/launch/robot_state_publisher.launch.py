@@ -4,13 +4,14 @@ import os
 import xacro
 from ament_index_python.packages import get_package_share_directory
 
+
 def generate_launch_description():
-    
+
     file = os.path.join(
-    get_package_share_directory('urdf_description'),
-    'urdf',
-    'URDF.xacro'
-)
+        get_package_share_directory('urdf_description'),
+        'urdf',
+        'URDF.xacro'
+    )
 
     robot_description_config = xacro.process_file(file)
     robot_description = robot_description_config.toxml()
@@ -31,5 +32,5 @@ def generate_launch_description():
             name='joint_state_publisher',
             output='screen',
         )
-        
+
     ])

@@ -152,7 +152,8 @@ def generate_launch_description():
         DeclareLaunchArgument('enable_mapping', default_value='true', choices=['true', 'false'],
                               description='Start SLAM or the saved-map server'),
         DeclareLaunchArgument('slam', default_value='true', choices=['true', 'false']),
-        DeclareLaunchArgument('map', default_value='', description='Saved map YAML when slam=false'),
+        DeclareLaunchArgument('map', default_value='',
+                              description='Saved map YAML when slam=false'),
         DeclareLaunchArgument('params_file', default_value=PathJoinSubstitution([
             FindPackageShare('bring_up'), 'config', 'nav2_params.yaml'])),
         DeclareLaunchArgument('follow', default_value='false', choices=['true', 'false'],

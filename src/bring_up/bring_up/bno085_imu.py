@@ -29,7 +29,8 @@ ACCEL_VARIANCE = 0.05 ** 2
 
 
 def fill_imu(msg, quaternion, gyro, acceleration):
-    """Fill an Imu message from Adafruit BNO08x readings.
+    """
+    Fill an Imu message from Adafruit BNO08x readings.
 
     quaternion is (i, j, k, real), gyro is rad/s and acceleration is m/s^2
     including gravity (the EKF removes it).

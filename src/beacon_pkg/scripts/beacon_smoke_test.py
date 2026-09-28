@@ -156,19 +156,32 @@ def main():
         print('PASS /goal_update: 40 m target clamped to 20 m, 10 m target unchanged', flush=True)
 
         invalid = []
-        msg = fix(); msg.status.status = -1; invalid.append(msg)
+        msg = fix()
+        msg.status.status = -1
+        invalid.append(msg)
         invalid.extend([fix(lat=float('nan')), fix(lat=91.0), fix(lon=181.0)])
-        msg = fix(); msg.altitude = float('nan'); invalid.append(msg)
-        msg = fix(); msg.header.stamp.sec -= 10; invalid.append(msg)
-        msg = fix(); msg.header.stamp.sec += 10; invalid.append(msg)
-        msg = fix(); msg.header.stamp.sec = 0; msg.header.stamp.nanosec = 0; invalid.append(msg)
+        msg = fix()
+        msg.altitude = float('nan')
+        invalid.append(msg)
+        msg = fix()
+        msg.header.stamp.sec -= 10
+        invalid.append(msg)
+        msg = fix()
+        msg.header.stamp.sec += 10
+        invalid.append(msg)
+        msg = fix()
+        msg.header.stamp.sec = 0
+        msg.header.stamp.nanosec = 0
+        invalid.append(msg)
         output.clear()
         for msg in invalid:
             beacon_pub.publish(msg)
             spin(0.15)
         assert not output, 'Published an invalid or stale fix'
         assert node.count_publishers('/goal_pose') == 0, 'Unexpected navigation goal publisher'
-        print('PASS invalid/no-fix/stale/future/unstamped rejection; no navigation goals', flush=True)
+        print(
+            'PASS invalid/no-fix/stale/future/unstamped rejection; no navigation goals',
+            flush=True)
 
         stop(navsat)
         timer.cancel()
@@ -181,6 +194,7 @@ def main():
 
         # Fault injection: a service returning late or after a newer measurement.
         ready_pub = node.create_publisher(Odometry, '/odometry/gps', 10)
+
         def heartbeat():
             msg = Odometry()
             msg.header.stamp = node.get_clock().now().to_msg()
@@ -188,10 +202,12 @@ def main():
             ready_pub.publish(msg)
         heartbeat_timer = node.create_timer(0.05, heartbeat)
         behavior = {'delay': 0.0, 'replace': False, 'nan': False, 'calls': 0}
+
         def convert(request, response):
             behavior['calls'] += 1
             if behavior['replace']:
-                replacement = fix(); replacement.status.status = -1
+                replacement = fix()
+                replacement.status.status = -1
                 beacon_pub.publish(replacement)
             time.sleep(behavior['delay'])
             response.map_point.x = float('nan') if behavior['nan'] else 7.0

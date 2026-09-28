@@ -20,7 +20,9 @@ setup(
     zip_safe=True,
     maintainer='roboflock',
     maintainer_email='adityasc16@gmail.com',
-    description='Top-level orchestration: launch files and configs that bring up the full Roboflock autonomy stack',
+    description=(
+        'Top-level orchestration: launch files and configs that bring up the full '
+        'Roboflock autonomy stack'),
     license='Apache-2.0',
     extras_require={
         'test': [

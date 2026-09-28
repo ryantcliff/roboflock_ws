@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Custom Teleop Node for ROS 2  –  verified controller mappings
-=============================================================
+Provide custom ROS 2 teleoperation with verified controller mappings.
+
 CONTROLS:
   R1  (btn 6)       Dead-man switch – hold for any movement
   R2  (axis 5)      Drive forward   at current linear speed  (binary, any press)
@@ -17,28 +17,29 @@ from sensor_msgs.msg import Joy
 from geometry_msgs.msg import Twist
 
 # -- Confirmed mappings --------------------------------------------------------
-BTN_R1         = 5    # R1 dead-man switch 
+BTN_R1 = 5    # R1 dead-man switch
 
-AXIS_R2        = 4    # R2 trigger: rest=+1.0, fully pressed=-1.0  (was 4 = right stick Y)
-AXIS_L2        = 3    # L2 trigger: rest=+1.0, fully pressed=-1.0  (was 3 = right stick X)
+AXIS_R2 = 4    # R2 trigger: rest=+1.0, fully pressed=-1.0  (was 4 = right stick Y)
+AXIS_L2 = 3    # L2 trigger: rest=+1.0, fully pressed=-1.0  (was 3 = right stick X)
 TRIGGER_THRESH = -0.5
 
-AXIS_STEER     = 2    # right stick X: left=+1.0, right=-1.0 
-AXIS_DPAD_Y    = 7     # linear 
-AXIS_DPAD_X    = 6      #angular
+AXIS_STEER = 2    # right stick X: left=+1.0, right=-1.0
+AXIS_DPAD_Y = 7     # linear
+AXIS_DPAD_X = 6  # angular
 # -----------------------------------------------------------------------------
 
 # Speed limits
-LINEAR_MIN,  LINEAR_MAX  = 0.5, 10.0
+LINEAR_MIN,  LINEAR_MAX = 0.5, 10.0
 ANGULAR_MIN, ANGULAR_MAX = 0.5, 10.0
 SPEED_STEP = 0.5
 STEER_DEADZONE = 0.1
+
 
 class PS4Teleop(Node):
     def __init__(self):
         super().__init__('ps4_teleop')
 
-        self.linear_speed  = 0.5   # m/s   – forward / backward fixed speed
+        self.linear_speed = 0.5   # m/s   – forward / backward fixed speed
         self.angular_speed = 0.5   # rad/s – right stick scale
 
         # Edge-detection state

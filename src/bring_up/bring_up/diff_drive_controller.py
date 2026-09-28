@@ -4,7 +4,7 @@ from geometry_msgs.msg import Twist
 from std_msgs.msg import Bool
 from bring_up.e_stop import E_STOP_QOS
 import odrive
-from odrive.enums import AxisState, InputMode, ControlMode
+from odrive.enums import AxisState, InputMode
 import math
 
 
@@ -23,7 +23,7 @@ E_STOP_TIMEOUT = 0.5     # seconds without /e_stop before stopping
 CMD_VEL_TIMEOUT = 0.5    # seconds without /cmd_vel before commanding zero
 
 FAST_DECEL = 50.0
-STD_ACCEL  = 10.0
+STD_ACCEL = 10.0
 
 
 class DiffDriveController(Node):
@@ -51,7 +51,8 @@ class DiffDriveController(Node):
             dev.clear_errors()
             dev.axis0.controller.config.input_mode = InputMode.VEL_RAMP
             dev.axis0.controller.config.vel_ramp_rate = STD_ACCEL
-            dev.axis0.controller.config.vel_gain = 0.02          # default ~0.16, lower = less resistance
+            # Lower than the ~0.16 default to reduce resistance.
+            dev.axis0.controller.config.vel_gain = 0.02
             dev.axis0.controller.config.vel_integrator_gain = 0.05
             self.drives[name] = dev
             self.get_logger().info(f'{name} connected')
@@ -116,11 +117,11 @@ class DiffDriveController(Node):
         self._moving = v != 0.0 or w != 0.0
         print(f"cmd_vel → linear: {v}, angular: {w}")
 
-        v_left  = v - (w * WHEEL_SEPARATION / 2.0)
+        v_left = v - (w * WHEEL_SEPARATION / 2.0)
         v_right = v + (w * WHEEL_SEPARATION / 2.0)
         print(f"v_left: {v_left} m/s, v_right: {v_right} m/s")
 
-        turns_left  = (v_left  / (2.0 * math.pi * WHEEL_RADIUS)) * GEAR_RATIO
+        turns_left = (v_left / (2.0 * math.pi * WHEEL_RADIUS)) * GEAR_RATIO
         turns_right = (v_right / (2.0 * math.pi * WHEEL_RADIUS)) * GEAR_RATIO
 
         # Left wheels are negated to match physical mounting orientation

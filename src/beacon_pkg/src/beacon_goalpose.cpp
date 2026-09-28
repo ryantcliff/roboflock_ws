@@ -18,7 +18,8 @@
 class BeaconGoalPose : public rclcpp::Node
 {
 public:
-  BeaconGoalPose() : Node("beacon_goalpose")
+  BeaconGoalPose()
+  : Node("beacon_goalpose")
   {
     max_age_ = declare_parameter("max_fix_age", 2.0);
     // Keep follow targets inside the 50 m rolling global costmap.
@@ -101,12 +102,12 @@ private:
       request, [this, generation, fix](rclcpp::Client<FromLL>::SharedFuture future) {
         pending_ = false;
         if (generation != generation_ || !valid_fix(*fix) || !ready() ||
-          std::chrono::duration<double>(SteadyClock::now() - request_started_).count() >
-          request_timeout_) {return;}
+        std::chrono::duration<double>(SteadyClock::now() - request_started_).count() >
+        request_timeout_) {return;}
         try {
           const auto point = future.get()->map_point;
           if (!std::isfinite(point.x) || !std::isfinite(point.y) ||
-            !std::isfinite(point.z)) {return;}
+          !std::isfinite(point.z)) {return;}
           geometry_msgs::msg::PoseStamped pose;
           // Preserve measurement age so a downstream follower can detect loss.
           pose.header.stamp = fix->header.stamp;
