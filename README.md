@@ -35,6 +35,10 @@ source install/setup.bash
 ```
 See the [documentation](https://roboflock-documentation.readthedocs.io/en/latest/) for dependencies, hardware setup, and launch instructions.
 
+For a reproducible ROS 2 Humble development environment on WSL Ubuntu 22.04,
+use [`scripts/bootstrap_ubuntu_22_04.sh`](scripts/bootstrap_ubuntu_22_04.sh) and
+the [WSL development guide](docs/wsl-development.md).
+
 ## Debug navigation without peripherals (ROS 2 Humble)
 
 Install the navigation dependencies once:
